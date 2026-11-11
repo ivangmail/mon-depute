@@ -7,6 +7,8 @@
 (function () {
   'use strict';
   var GEOCODAGE = 'https://data.geopf.fr/geocodage/search';
+  var COMMUNES = 'https://geo.api.gouv.fr/communes';
+  var PART_MINIMALE = 0.03;  // part de la commune en dessous de laquelle on ignore une circonscription
   var MARGE = 100;        // mètres : en dessous, on signale la proximité d'une limite
   var RATTRAPAGE = 300;   // mètres : point hors de tout contour, mais tout près d'un
 
@@ -79,8 +81,49 @@
     return null;
   }
 
+  // Contour GeoJSON (Polygon ou MultiPolygon) -> polygones à anneaux à plat.
+  function aplatir(geometrie) {
+    var polygones = geometrie.type === 'MultiPolygon' ? geometrie.coordinates : [geometrie.coordinates];
+    return polygones.map(function (p) {
+      return p.map(function (anneau) {
+        var plat = [];
+        anneau.forEach(function (c) { plat.push(c[0], c[1]); });
+        return plat;
+      });
+    });
+  }
+
+  /* Circonscriptions qui couvrent une commune, de la plus grande part à la plus
+     petite. On sème une grille de points dans la commune et on regarde dans
+     quelle circonscription tombe chacun : les imprécisions de tracé le long
+     d'une limite ne pèsent alors presque rien et sont écartées. */
+  function circosDeCommune(contour, circos) {
+    var commune = aplatir(contour), x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    commune.forEach(function (p) {
+      for (var i = 0; i < p[0].length; i += 2) {
+        x0 = Math.min(x0, p[0][i]); x1 = Math.max(x1, p[0][i]);
+        y0 = Math.min(y0, p[0][i + 1]); y1 = Math.max(y1, p[0][i + 1]);
+      }
+    });
+    var N = 40, compte = {}, total = 0, numeros = Object.keys(circos);
+    for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) {
+      var x = x0 + (x1 - x0) * (i + 0.5) / N, y = y0 + (y1 - y0) * (j + 0.5) / N;
+      if (!dansPolygones(x, y, commune)) continue;
+      total++;
+      for (var k = 0; k < numeros.length; k++) {
+        if (dansPolygones(x, y, circos[numeros[k]].g)) {
+          compte[numeros[k]] = (compte[numeros[k]] || 0) + 1; break;
+        }
+      }
+    }
+    return Object.keys(compte).map(function (n) { return { numero: n, part: compte[n] / total }; })
+      .filter(function (c) { return c.part >= PART_MINIMALE; })
+      .sort(function (a, b) { return b.part - a.part; });
+  }
+
   window.MonDepute = { departement: departement, dansPolygones: dansPolygones,
-                       distanceAuBord: distanceAuBord, trouver: trouver };
+                       distanceAuBord: distanceAuBord, trouver: trouver,
+                       circosDeCommune: circosDeCommune };
 
   var champ = document.getElementById('adresse');
   if (!champ) return;
@@ -144,9 +187,90 @@
     }
   }
 
+  // Résultat établi à partir de la commune seule (sans adresse exacte).
+  function afficherCommune(commune, enPanne) {
+    var code = departement(commune.code);
+    message('Recherche des circonscriptions de ' + commune.nom + '…');
+    fetch('circos/' + code + '.json').then(function (r) {
+      if (!r.ok) throw new Error('sans contour');
+      return r.json();
+    }).then(function (donnees) {
+      var trouvees = commune.contour ? circosDeCommune(commune.contour, donnees.circos) : [];
+      if (!trouvees.length) {
+        message('Impossible de situer ' + commune.nom + ' dans une circonscription. ' +
+                'La liste ci-dessous est filtrée sur le département.');
+        filtrerListe(donnees.nom); return;
+      }
+      vider(resultat);
+      resultat.appendChild(element('p', trouvees.length === 1 ?
+        'D’après votre commune (' + commune.nom + '), votre député est :' :
+        commune.nom + ' s’étend sur ' + trouvees.length +
+        ' circonscriptions. Votre député est l’un de ceux-ci :', { class: 'doux petit' }));
+      trouvees.forEach(function (t) {
+        resultat.appendChild(ligneDepute(donnees.circos[t.numero], t.numero, donnees.nom));
+      });
+      var note = 'Ce résultat est établi à partir de la commune, pas de votre adresse exacte.';
+      if (enPanne) note += ' Le service d’adresses de l’IGN, qui permet d’être précis, ne répond ' +
+        'pas pour le moment : réessayez plus tard.';
+      if (trouvees.length > 1) note += ' Le numéro de votre circonscription figure sur votre carte électorale.';
+      resultat.appendChild(element('p', note, { class: 'alerte petit' }));
+    }).catch(function () {
+      message('Les contours des circonscriptions ne sont pas disponibles pour ce territoire. ' +
+              'La liste ci-dessous est filtrée sur le département.');
+      filtrerListe((commune.departement && commune.departement.nom) || code);
+    });
+  }
+
+  /* Secours quand le service d'adresses ne répond pas : le code postal donne
+     la ou les communes, grâce à l'API publique du découpage administratif. */
+  function secours(q) {
+    var cp = q.match(/\b\d{5}\b/);
+    if (!cp) {
+      message('Le service d’adresses de l’IGN ne répond pas pour le moment. Ajoutez votre code ' +
+              'postal à l’adresse pour une recherche par commune, ou utilisez la recherche par ' +
+              'nom ou par département ci-dessous.');
+      return;
+    }
+    fetch(COMMUNES + '?codePostal=' + cp[0] + '&type=arrondissement-municipal,commune-actuelle' +
+          '&fields=nom,code,departement,contour')
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (communes) {
+        // Paris, Lyon, Marseille : on garde l'arrondissement, pas la ville entière.
+        var arrondissements = communes.filter(function (c) { return /Arrondissement/.test(c.nom); });
+        if (arrondissements.length) communes = arrondissements;
+        vider(liste);
+        if (!communes.length) { message('Aucune commune ne correspond au code postal ' + cp[0] + '.'); return; }
+        if (communes.length === 1) { afficherCommune(communes[0], true); return; }
+        message('Le service d’adresses de l’IGN ne répond pas pour le moment. ' +
+                'Choisissez votre commune :');
+        communes.sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); });
+        communes.forEach(function (c) {
+          var li = element('li'), b = element('button', c.nom + ' (' + cp[0] + ')', { type: 'button' });
+          b.addEventListener('click', function () { vider(liste); afficherCommune(c, true); });
+          li.appendChild(b); liste.appendChild(li);
+        });
+      })
+      .catch(function () {
+        message('Ni le service d’adresses de l’IGN ni celui des communes ne répondent pour le ' +
+                'moment. Utilisez la recherche par nom ou par département ci-dessous.');
+      });
+  }
+
   function choisir(f) {
     vider(liste);
     champ.value = f.properties.label;
+    // Une commune sans rue ni numéro : son centre ne dit rien de la circonscription
+    // quand la commune en compte plusieurs. On passe par le contour de la commune.
+    if (f.properties.type === 'municipality') {
+      message('Recherche de la commune…');
+      fetch(COMMUNES + '/' + f.properties.citycode + '?fields=nom,code,departement,contour')
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (c) { afficherCommune(c, false); })
+        .catch(function () {
+          message('Précisez une rue et un numéro pour trouver votre circonscription.');
+        });
+      return;
+    }
     var lon = f.geometry.coordinates[0], lat = f.geometry.coordinates[1];
     var code = departement(f.properties.citycode);
     var nomDep = String(f.properties.context || '').split(',')[1];
@@ -191,8 +315,7 @@
       .catch(function (e) {
         if (e.name === 'AbortError') return;
         vider(liste);
-        message('Le service d’adresses de l’IGN ne répond pas pour le moment. ' +
-                'Utilisez la recherche par nom ou par département ci-dessous.');
+        secours(q);
       });
   }
 

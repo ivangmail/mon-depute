@@ -116,6 +116,11 @@ officiel. Pour les régénérer après un redécoupage :
 python3 outils/preparer_contours.py circonscriptions-legislatives-p20.geojson
 ```
 
+Quand le service de géocodage ne répond pas, ou quand seule une commune est
+indiquée, le site se rabat sur l'API publique du découpage administratif
+(`geo.api.gouv.fr`) : le code postal donne la commune, et le site liste la ou
+les circonscriptions qui la couvrent, sans pouvoir trancher entre elles.
+
 À moins de 100 mètres d'une limite, le site prévient que le résultat peut être
 faux et affiche la circonscription voisine. Il n'existe pas de contours pour la
 Nouvelle-Calédonie, la Polynésie française, Wallis-et-Futuna, Saint-Barthélemy

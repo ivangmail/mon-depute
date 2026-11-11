@@ -163,11 +163,12 @@ def accueil(deputes, chemins):
 <section class="bloc">
 <h2>Par votre adresse</h2>
 <label for="adresse">Votre adresse postale</label>
-<input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 boulevard du Port, Amiens">
+<input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 boulevard du Port, 80000 Amiens">
 <ul id="suggestions"></ul>
 <div id="resultat" aria-live="polite"></div>
 <p class="doux petit">Votre adresse est envoyée par votre navigateur au service public de géocodage
- de l’IGN, qui renvoie ses coordonnées. Ce site ne la reçoit pas et ne conserve rien.
+ de l’IGN, qui renvoie ses coordonnées (à défaut, votre code postal est envoyé au service public
+ des communes). Ce site ne la reçoit pas et ne conserve rien.
  <a href="methodologie.html#adresse">Comment la circonscription est trouvée</a>.
  <button class="lien" id="etranger" type="button">J’habite à l’étranger</button></p>
 </section>
@@ -299,6 +300,10 @@ def methodologie(db):
  ministère de l’Intérieur et de l’INSEE. Ce n’est pas un tracé officiel, et il est simplifié.</li>
 <li>À moins de 100 mètres d’une limite, le résultat peut être faux : le site l’indique et affiche
  aussi la circonscription voisine. Seule votre carte électorale fait foi.</li>
+<li>Quand le service de géocodage ne répond pas, ou quand vous n’indiquez qu’une commune, le
+ site s’appuie sur l’API publique du découpage administratif (geo.api.gouv.fr) : votre code postal
+ donne votre commune, et le site liste la ou les circonscriptions qui la couvrent. Une grande
+ ville en compte plusieurs : le site les affiche toutes, sans pouvoir trancher.</li>
 <li>Il n’existe pas de contours pour la Nouvelle-Calédonie, la Polynésie française,
  Wallis-et-Futuna, Saint-Barthélemy et Saint-Martin, ni pour les Français établis hors de France :
  la liste des députés est alors filtrée sur le territoire.</li>
