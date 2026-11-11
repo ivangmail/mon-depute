@@ -1,0 +1,5 @@
+donnees/
+site/
+__pycache__/
+*.pyc
+*.zip

@@ -1,0 +1,49 @@
+name: Publication du site
+
+on:
+  schedule:
+    # Tous les jours à 16 h 23 UTC : les données de l'Assemblée sont
+    # régénérées dans la nuit et jusqu'en début d'après-midi.
+    - cron: "23 16 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule publication à la fois ; une exécution en cours va à son terme.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests
+        run: python -m unittest
+      - name: Collecte, indicateurs et génération du site
+        run: python -m collecte maj
+      - name: État de la base
+        run: python -m collecte etat
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publier:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4
