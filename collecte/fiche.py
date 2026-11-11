@@ -145,7 +145,35 @@ def _carte(valeur, libelle, detail=""):
             + (f'<small>{escape(detail)}</small>' if detail else "") + "</div>")
 
 
-def corps(db, uid, racine=""):
+def formulaire_abonnement(nom, d, racine, api_url):
+    """Formulaire d'abonnement à la lettre, pour un député en exercice."""
+    return f"""
+<section class="bloc">
+<h2>Suivre son activité par e-mail</h2>
+<form id="abonnement" method="post" action="{escape(api_url)}/api/abonnement">
+<input type="hidden" name="departement" value="{escape(d['num_departement'] or '')}">
+<input type="hidden" name="circo" value="{escape(str(d['num_circo'] or ''))}">
+<p class="piege" aria-hidden="true"><label>Ne pas remplir <input name="site" tabindex="-1" autocomplete="off"></label></p>
+<label for="abonnement-email">Votre adresse e-mail</label>
+<input id="abonnement-email" name="email" type="email" required autocomplete="email">
+<fieldset><legend>Fréquence</legend>
+<label><input type="radio" name="frequence" value="hebdomadaire" checked> Chaque semaine</label>
+<label><input type="radio" name="frequence" value="mensuelle"> Chaque mois</label></fieldset>
+<p><label class="case"><input type="checkbox" name="consentement" value="1" required>
+ J’accepte que mon adresse e-mail soit conservée pour recevoir cette lettre.</label></p>
+<p><button type="submit">Recevoir l’activité de {escape(nom)}</button></p>
+<p id="abonnement-retour" aria-live="polite"></p>
+</form>
+<p class="doux petit">Un e-mail vous demandera de confirmer. Seules votre adresse, cette circonscription
+ et la fréquence sont conservées, jusqu’à votre désabonnement, possible en un clic depuis chaque
+ lettre. Aucune lettre n’est envoyée quand il n’y a pas d’activité.
+ <a href="{racine}confidentialite.html">Confidentialité</a>.</p>
+</section>
+<script src="{racine}abonnement.js"></script>
+"""
+
+
+def corps(db, uid, racine="", api_url=None):
     """Renvoie (titre, description, html du contenu principal)."""
     a = db.execute("SELECT * FROM acteurs WHERE uid = ?", (uid,)).fetchone()
     d = db.execute("SELECT * FROM deputes WHERE acteur_uid = ?", (uid,)).fetchone()
@@ -282,6 +310,7 @@ def corps(db, uid, racine=""):
           "Aucune intervention de 20 mots ou plus.")}
 </section>
 
+{formulaire_abonnement(nom, d, racine, api_url) if api_url and d['en_exercice'] else ''}
 <section>
 <h2>Le contacter</h2>
 <dl class="contact">{''.join(lignes_contact) or '<dt>Contact</dt><dd>Aucun contact publié.</dd>'}</dl>

@@ -3,8 +3,9 @@
 Collecte quotidienne des données ouvertes de l'Assemblée nationale
 (17ᵉ législature) dans une base SQLite, calcul d'indicateurs d'activité et
 génération d'un site statique : une fiche par député, une recherche par nom ou
-par adresse postale et une page Méthodologie. Restent à faire : la newsletter
-et l'interpellation.
+par adresse postale et une page Méthodologie. Une lettre d'information par
+circonscription est prête, mais pas encore déployée. Reste à faire :
+l'interpellation.
 
 Python 3.10 ou plus, aucune dépendance à installer.
 
@@ -126,6 +127,39 @@ faux et affiche la circonscription voisine. Il n'existe pas de contours pour la
 Nouvelle-Calédonie, la Polynésie française, Wallis-et-Futuna, Saint-Barthélemy
 et Saint-Martin, ni pour les Français de l'étranger : la liste des députés est
 alors filtrée sur le territoire.
+
+## Lettre d'information
+
+Le dossier `lettre/` contient un petit service web et une commande d'envoi,
+sans dépendance. Un visiteur s'abonne depuis la fiche d'un député, confirme
+par e-mail, puis reçoit chaque semaine ou chaque mois l'activité du député de
+sa circonscription. Aucune lettre ne part quand il n'y a rien à dire.
+
+- **Données conservées :** l'adresse e-mail, la circonscription et la
+  fréquence, dans une base séparée (`abonnes.sqlite`). Ni nom, ni adresse
+  postale, ni adresse IP. Le désabonnement efface la ligne.
+- **Liens signés :** les liens de confirmation, de gestion et de
+  désabonnement sont signés avec `MD_SECRET` ; aucun mot de passe.
+- **Abus :** réponse identique que l'adresse soit abonnée ou non, un seul
+  e-mail de confirmation par heure et par adresse, dix demandes par heure et
+  par adresse IP, champ piège contre les robots.
+- **Formulaire :** il n'apparaît sur les fiches que si le site est généré
+  avec `--api` ou la variable `MD_API_URL`. Sur GitHub Pages, il est absent.
+
+Essai en local, les e-mails étant écrits dans un dossier au lieu d'être
+envoyés :
+
+```bash
+export MD_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export MD_SITE_URL=http://localhost:8000 MD_API_URL=http://localhost:8766
+export MD_EXPEDITEUR="Mon député <lettre@exemple.fr>" MD_DOSSIER_COURRIELS=donnees/courriels
+python3 -m collecte --api "$MD_API_URL" site
+python3 -m lettre servir
+```
+
+Puis, dans un autre terminal, `python3 -m lettre envoyer` (ou `--a-blanc`
+pour voir ce qui partirait). L'installation sur un serveur est décrite dans
+`deploiement/README.md`.
 
 ## Limites connues de la source
 

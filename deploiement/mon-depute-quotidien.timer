@@ -1,0 +1,11 @@
+[Unit]
+Description=Mon député : mise à jour quotidienne
+
+[Timer]
+# 17 h 23, heure du serveur : les données de l'Assemblée sont régénérées
+# jusqu'en début d'après-midi.
+OnCalendar=*-*-* 17:23:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

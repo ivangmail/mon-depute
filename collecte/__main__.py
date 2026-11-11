@@ -83,7 +83,8 @@ def publier(db, args):
         indicateurs.calculer(db)
     print(f"[indicateurs] terminé en {time.time() - debut:.0f} s")
     debut = time.time()
-    site.generer(db, args.site, journal=lambda m: print(f"[site] {m}"))
+    site.generer(db, args.site, journal=lambda m: print(f"[site] {m}"),
+                 api_url=args.api or os.environ.get("MD_API_URL"))
     print(f"[site] terminé en {time.time() - debut:.0f} s")
 
 
@@ -116,6 +117,8 @@ def main():
     parseur.add_argument("--base", help="chemin de la base SQLite")
     parseur.add_argument("--site", default="site",
                          help="dossier du site généré (défaut : site)")
+    parseur.add_argument("--api", help="adresse du service de la lettre ; sans elle (ni la "
+                         "variable MD_API_URL), le formulaire d'abonnement n'est pas affiché")
     commandes = parseur.add_subparsers(dest="commande", required=True)
     p = commandes.add_parser("maj", help="met à jour la base")
     p.add_argument("--jeux", nargs="+", choices=ORDRE)

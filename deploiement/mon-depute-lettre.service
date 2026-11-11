@@ -1,0 +1,18 @@
+[Unit]
+Description=Mon député : service web de la lettre
+After=network.target
+# Un seul processus : la limitation de débit par adresse IP est tenue en mémoire.
+
+[Service]
+User=mondepute
+WorkingDirectory=/srv/mon-depute/code
+EnvironmentFile=/etc/mon-depute.env
+ExecStart=/usr/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8766 lettre.wsgi:application
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/srv/mon-depute/donnees
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

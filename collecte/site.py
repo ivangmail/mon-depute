@@ -80,6 +80,13 @@ border:1px solid var(--trait);background:var(--fond);color:var(--texte)}
 border-bottom:1px solid var(--trait);background:none;color:var(--texte);cursor:pointer}
 #suggestions button:hover,#suggestions button:focus-visible{background:var(--jauge)}
 #resultat{margin-top:12px}#resultat p{margin:0 0 6px}
+.bloc fieldset{border:0;padding:0;margin:14px 0 4px;display:flex;gap:6px 22px;flex-wrap:wrap}
+.bloc legend{font-weight:600;padding:0;margin-bottom:4px}
+.bloc fieldset label,.bloc label.case{display:inline;font-weight:400}
+.bloc input[type=radio],.bloc input[type=checkbox]{width:auto;margin-right:6px}
+.bloc button[type=submit],main form button{font:inherit;padding:10px 16px;border-radius:8px;
+border:0;background:var(--accent);color:var(--fond);cursor:pointer;font-weight:600}
+.piege{position:absolute;left:-9999px}
 .alerte{background:var(--alerte);color:var(--alerte-texte);padding:8px 12px;border-radius:8px}
 .lien{font:inherit;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;
 text-decoration:underline}
@@ -132,7 +139,8 @@ def page(titre, description, contenu, racine, fraicheur):
 <main>{contenu}</main>
 <footer><div>Source : Assemblée nationale, données ouvertes publiées sous Licence Ouverte
  (data.assemblee-nationale.fr). Ce site n’est pas un site officiel de l’Assemblée nationale.
- Seuls les documents officiels font foi.</div></footer>
+ Seuls les documents officiels font foi.
+ <a href="{racine}confidentialite.html">Confidentialité</a></div></footer>
 </body></html>
 """
 
@@ -347,14 +355,15 @@ def circonscriptions(deputes, chemins, dossier_contours=CONTOURS):
     return resultat
 
 
-def generer(db, dossier, journal=print):
-    fraicheur = fiche.date_source(l[0] for l in db.execute("SELECT last_modified FROM imports"))
-    deputes = db.execute("""
+def lister_deputes(db):
+    return db.execute("""
         SELECT d.*, a.prenom, a.nom FROM deputes d JOIN acteurs a ON a.uid = d.acteur_uid
         ORDER BY a.nom COLLATE NOCASE, a.prenom COLLATE NOCASE""").fetchall()
-    os.makedirs(os.path.join(dossier, "deputes"), exist_ok=True)
 
-    # Adresse de chaque fiche : prénom-nom, suffixé de l'identifiant en cas d'homonymie.
+
+def adresses_fiches(deputes):
+    """Adresse de chaque fiche : prénom-nom, suffixé de l'identifiant en cas
+    d'homonymie. La lettre d'information s'en sert pour ses liens."""
     chemins, pris = {}, set()
     for d in deputes:
         nom = fiche.slug(d["prenom"], d["nom"]) or d["acteur_uid"].lower()
@@ -362,6 +371,52 @@ def generer(db, dossier, journal=print):
             nom = f"{nom}-{d['acteur_uid'].lower()}"
         pris.add(nom)
         chemins[d["acteur_uid"]] = f"deputes/{nom}.html"
+    return chemins
+
+
+def confidentialite(api_url):
+    lettre = """
+<h2>La lettre d’information</h2>
+<p>Si vous vous abonnez à l’activité d’un député, sont conservées : votre adresse e-mail, la
+ circonscription suivie et la fréquence choisie. Rien d’autre : ni nom, ni adresse postale,
+ ni adresse IP.</p>
+<ul>
+<li><b>Finalité :</b> vous envoyer cette lettre, et rien d’autre. Votre adresse n’est ni cédée,
+ ni utilisée pour un autre envoi.</li>
+<li><b>Base légale :</b> votre consentement, donné en cochant la case du formulaire puis en
+ confirmant par e-mail.</li>
+<li><b>Durée :</b> jusqu’à votre désabonnement. Une inscription non confirmée est effacée
+ sous 7 jours.</li>
+<li><b>Désabonnement :</b> en un clic depuis chaque lettre. Votre adresse est alors effacée,
+ sans conservation.</li>
+<li><b>Envoi :</b> les lettres sont acheminées par un prestataire d’envoi d’e-mails, qui reçoit
+ votre adresse pour cette seule opération.</li>
+</ul>
+<p>Vous disposez d’un droit d’accès, de rectification et d’effacement de ces données, et du droit
+ d’introduire une réclamation auprès de la CNIL.</p>""" if api_url else ""
+    return f"""
+<h1>Confidentialité</h1>
+<p class="portrait">Ce site se consulte sans compte et ne dépose aucun cookie.</p>
+
+<h2>La recherche par adresse</h2>
+<p>L’adresse que vous saisissez est envoyée par votre navigateur au service public de géocodage
+ de l’IGN ; à défaut, votre code postal est envoyé au service public du découpage administratif
+ (geo.api.gouv.fr). La circonscription est ensuite déterminée dans votre navigateur.
+ Ce site ne reçoit ni votre adresse ni vos coordonnées, et ne conserve rien.</p>
+{lettre}
+<h2>Les données sur les députés</h2>
+<p>Les informations affichées sur les députés (état civil, mandats, votes, contacts publics)
+ sont celles que l’Assemblée nationale publie en données ouvertes, sous Licence Ouverte.</p>
+"""
+
+
+def generer(db, dossier, journal=print, api_url=None):
+    api_url = (api_url or "").rstrip("/") or None
+    fraicheur = fiche.date_source(l[0] for l in db.execute("SELECT last_modified FROM imports"))
+    deputes = lister_deputes(db)
+    os.makedirs(os.path.join(dossier, "deputes"), exist_ok=True)
+
+    chemins = adresses_fiches(deputes)
 
     def ecrire(chemin, contenu):
         with open(os.path.join(dossier, chemin), "w", encoding="utf-8") as f:
@@ -369,8 +424,12 @@ def generer(db, dossier, journal=print):
 
     ecrire("style.css", STYLE)
     ecrire("recherche.js", RECHERCHE_JS)
-    with open(os.path.join(ICI, "adresse.js"), encoding="utf-8") as f:
-        ecrire("adresse.js", f.read())
+    for script in ("adresse.js", "abonnement.js"):
+        with open(os.path.join(ICI, script), encoding="utf-8") as f:
+            ecrire(script, f.read())
+    ecrire("confidentialite.html", page(
+        f"Confidentialité · {NOM_SITE}", "Ce que ce site reçoit, conserve, et ne conserve pas.",
+        confidentialite(api_url), "", fraicheur))
     os.makedirs(os.path.join(dossier, "circos"), exist_ok=True)
     for code, contenu in circonscriptions(deputes, chemins).items():
         ecrire(f"circos/{code}.json", json.dumps(contenu, ensure_ascii=False,
@@ -383,7 +442,8 @@ def generer(db, dossier, journal=print):
         f"Méthodologie · {NOM_SITE}", "Comment chaque indicateur est calculé, et ses limites.",
         methodologie(db), "", fraicheur))
     for d in deputes:
-        titre, description, contenu = fiche.corps(db, d["acteur_uid"], racine="../")
+        titre, description, contenu = fiche.corps(db, d["acteur_uid"], racine="../",
+                                                  api_url=api_url)
         ecrire(chemins[d["acteur_uid"]],
                page(f"{titre} · {NOM_SITE}", description, contenu, "../", fraicheur))
     journal(f"{len(deputes)} fiches écrites dans {dossier}")

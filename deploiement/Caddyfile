@@ -1,0 +1,19 @@
+# Remplacer exemple.fr par le nom de domaine. Caddy obtient et renouvelle
+# seul le certificat HTTPS.
+exemple.fr {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8766
+	}
+
+	handle {
+		root * /srv/mon-depute/site
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

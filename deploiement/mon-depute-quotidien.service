@@ -1,0 +1,12 @@
+[Unit]
+Description=Mon député : collecte, site et envoi des lettres
+
+[Service]
+Type=oneshot
+User=mondepute
+WorkingDirectory=/srv/mon-depute/code
+EnvironmentFile=/etc/mon-depute.env
+# La collecte régénère le site ; les lettres ne partent que si elle a réussi.
+ExecStart=/usr/bin/python3 -m collecte --donnees /srv/mon-depute/donnees --site /srv/mon-depute/site maj
+ExecStart=/usr/bin/python3 -m lettre purger
+ExecStart=/usr/bin/python3 -m lettre envoyer
