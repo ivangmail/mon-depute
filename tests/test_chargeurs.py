@@ -349,3 +349,28 @@ class Circonscriptions(unittest.TestCase):
         total = sum(len(json.loads(pathlib.Path(site.CONTOURS, f).read_text()))
                     for f in fichiers)
         self.assertEqual(total, 559)
+
+
+class PresenceEnCommission(unittest.TestCase):
+    def test_seules_les_feuilles_exploitables_comptent(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            db = base_indicateurs(dossier)
+            reunions = [  # uid, état, date, présences de PA1 et PA2
+                ("R1", "Confirmé", "2025-03-01", "présent", "absent"),   # comptée
+                ("R2", "Confirmé", "2025-03-02", "excusé", "présent"),   # comptée
+                ("R3", "Confirmé", "2025-03-03", "absent", "absent"),    # feuille non remplie
+                ("R4", "Annulé", "2025-03-04", "absent", "présent"),     # annulée
+                ("R5", "Confirmé", "2099-01-01", "absent", "présent")]   # à venir
+            for uid, etat, jour, p1, p2 in reunions:
+                db.execute("INSERT INTO reunions VALUES (?, 'commission', ?, NULL, 'C1', ?,"
+                           " NULL, NULL)", (uid, jour + "T09:00:00", etat))
+                db.executemany("INSERT INTO presences VALUES (?,?,?)",
+                               [(uid, "PA1", p1), (uid, "PA2", p2)])
+            with db:
+                indicateurs.calculer(db, aujourdhui="2026-01-01")
+            i = dict(db.execute("SELECT * FROM indicateurs WHERE acteur_uid = 'PA1'").fetchone())
+            self.assertEqual((i["commission_present"], i["commission_absent"],
+                              i["commission_excuse"]), (1, 0, 1))
+            comptees = [l[0] for l in db.execute("SELECT uid FROM reunions_comptees ORDER BY 1")]
+            self.assertEqual(comptees, ["R1", "R2"])
+            db.close()

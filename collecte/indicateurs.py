@@ -4,6 +4,8 @@ Chaque règle appliquée ici est décrite en français courant dans la page
 Méthodologie du site (collecte/site.py) : si l'une change, l'autre aussi.
 """
 
+import datetime
+
 from .sources import LEGISLATURE
 
 EXPRIMES = "('pour', 'contre', 'abstention')"
@@ -22,6 +24,10 @@ CREATE TABLE lignes_groupe (
     position    TEXT NOT NULL,
     PRIMARY KEY (scrutin_uid, groupe_uid)
 ) WITHOUT ROWID;
+
+-- Réunions de commission dont la feuille de présence est exploitable.
+DROP TABLE IF EXISTS reunions_comptees;
+CREATE TABLE reunions_comptees (uid TEXT PRIMARY KEY) WITHOUT ROWID;
 
 DROP TABLE IF EXISTS indicateurs;
 CREATE TABLE indicateurs (
@@ -72,7 +78,8 @@ def _maj(db, colonnes, requete, parametres=()):
                    (*[v or 0 for v in ligne[1:]], ligne[0]))
 
 
-def calculer(db):
+def calculer(db, aujourdhui=None):
+    aujourdhui = aujourdhui or datetime.date.today().isoformat()
     db.executescript(SCHEMA)
     db.execute("INSERT INTO indicateurs (acteur_uid) SELECT acteur_uid FROM deputes")
 
@@ -121,11 +128,22 @@ def calculer(db):
         WHERE v.position IN {EXPRIMES} AND coalesce(o.libelle_abrege, '') <> 'NI'
         GROUP BY v.acteur_uid""")
 
+    # L'agenda de l'Assemblée liste d'avance les membres convoqués, tous notés
+    # « absent » tant que la feuille n'est pas remplie. On ne retient donc que
+    # les réunions confirmées, déjà tenues, et où au moins un député est noté
+    # présent : une feuille sans aucun présent n'a pas été remplie.
+    db.execute("""
+        INSERT INTO reunions_comptees
+        SELECT r.uid FROM reunions r
+        WHERE r.type = 'commission' AND r.etat = 'Confirmé' AND substr(r.debut, 1, 10) <= ?
+          AND EXISTS (SELECT 1 FROM presences p
+                      WHERE p.reunion_uid = r.uid AND p.presence = 'présent')""",
+               (aujourdhui,))
     _maj(db, ("commission_present", "commission_absent", "commission_excuse"), """
         SELECT p.acteur_uid, sum(p.presence = 'présent'), sum(p.presence = 'absent'),
                sum(p.presence = 'excusé')
-        FROM presences p JOIN reunions r ON r.uid = p.reunion_uid
-        WHERE r.type = 'commission' GROUP BY p.acteur_uid""")
+        FROM presences p JOIN reunions_comptees r ON r.uid = p.reunion_uid
+        GROUP BY p.acteur_uid""")
 
     _maj(db, ("questions_ecrites", "questions_gouvernement", "questions_orales"), """
         SELECT acteur_uid, sum(type = 'QE'), sum(type = 'QG'), sum(type = 'QOSD')

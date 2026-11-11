@@ -193,8 +193,7 @@ def methodologie(db):
     solennels = n(f"SELECT count(*) FROM scrutins WHERE type_vote = '{indicateurs.SOLENNEL}'")
     scrutins = n("SELECT count(*) FROM scrutins")
     commissions = n("SELECT count(*) FROM reunions WHERE type = 'commission'")
-    feuilles = n("SELECT count(DISTINCT p.reunion_uid) FROM presences p JOIN reunions r"
-                 " ON r.uid = p.reunion_uid WHERE r.type = 'commission'")
+    feuilles = n("SELECT count(*) FROM reunions_comptees")
     moy = lambda cle: fiche.pourcent(m[("tous", cle)]["valeur"]) if ("tous", cle) in m else "—"
     return f"""
 <h1>Méthodologie</h1>
@@ -255,6 +254,9 @@ def methodologie(db):
 <ul>
 <li>L’Assemblée ne publie une feuille de présence que pour une partie des réunions :
  {feuilles} sur {commissions} réunions de commission à ce jour. L’indicateur ne porte que sur celles-ci.</li>
+<li>Ne sont retenues que les réunions confirmées et déjà tenues. L’agenda de l’Assemblée inscrit
+ d’avance les membres convoqués comme « absents » : une réunion à venir, annulée, ou dont la
+ feuille ne compte aucun présent (feuille non remplie) est donc écartée.</li>
 <li>Une absence excusée reste comptée comme une absence, mais elle est indiquée séparément.</li>
 <li>Le taux n’est pas affiché en dessous de {indicateurs.MIN_REUNIONS} réunions.</li>
 </ul>
