@@ -271,3 +271,23 @@ class Configuration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnvoiSMTP(unittest.TestCase):
+    def test_mode_de_chiffrement_selon_le_port(self):
+        from unittest import mock
+        for port, direct in [(2465, True), (465, True), (587, False), (2587, False)]:
+            cfg = Config(secret=SECRET, site_url="https://s.fr", api_url="https://a.fr",
+                         donnees="", abonnes="", expediteur="Mon député <l@s.fr>",
+                         smtp_hote="smtp.exemple.fr", smtp_port=port,
+                         smtp_utilisateur="projet", smtp_mot_de_passe="cle")
+            message = courriel.construire(cfg, "ada@exemple.fr", "Sujet", "Texte")
+            with mock.patch("smtplib.SMTP_SSL") as chiffre, mock.patch("smtplib.SMTP") as clair:
+                courriel.envoyer(cfg, message)
+            utilise, autre = (chiffre, clair) if direct else (clair, chiffre)
+            autre.assert_not_called()
+            serveur = utilise.return_value
+            self.assertEqual(utilise.call_args.args[:2], ("smtp.exemple.fr", port))
+            self.assertEqual(serveur.starttls.called, not direct, port)
+            serveur.login.assert_called_once_with("projet", "cle")
+            serveur.send_message.assert_called_once_with(message)

@@ -8,6 +8,11 @@ from email.policy import SMTP
 from email.utils import formatdate, make_msgid, parseaddr
 
 
+# Ports où la connexion est chiffrée d'emblée ; sur les autres (587, 2587),
+# le chiffrement est négocié après la connexion (STARTTLS).
+PORTS_TLS_DIRECT = (465, 2465)
+
+
 def construire(config, destinataire, sujet, texte, html=None, desabonnement=None):
     # Sans repli de ligne : un lien long dans un en-tête replié serait encodé,
     # et le désabonnement en un clic ne fonctionnerait plus.
@@ -36,8 +41,15 @@ def envoyer(config, message):
         with open(chemin, "wb") as f:
             f.write(bytes(message))
         return chemin
-    with smtplib.SMTP(config.smtp_hote, config.smtp_port, timeout=30) as serveur:
-        serveur.starttls(context=ssl.create_default_context())
+    contexte = ssl.create_default_context()
+    if config.smtp_port in PORTS_TLS_DIRECT:
+        serveur = smtplib.SMTP_SSL(config.smtp_hote, config.smtp_port, timeout=30,
+                                   context=contexte)
+    else:
+        serveur = smtplib.SMTP(config.smtp_hote, config.smtp_port, timeout=30)
+    with serveur:
+        if config.smtp_port not in PORTS_TLS_DIRECT:
+            serveur.starttls(context=contexte)
         if config.smtp_utilisateur:
             serveur.login(config.smtp_utilisateur, config.smtp_mot_de_passe)
         serveur.send_message(message)
