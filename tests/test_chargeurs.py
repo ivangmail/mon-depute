@@ -300,3 +300,52 @@ class Portrait(unittest.TestCase):
                       " au Gouvernement.", texte)
         # L'historique ne remonte qu'à 2002 : jamais d'affirmation de premier mandat.
         self.assertNotIn("premier mandat", texte)
+
+
+# --------------------------------------------------------------- étape 3
+
+class Circonscriptions(unittest.TestCase):
+    def test_conversion_des_contours(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "preparer_contours",
+            os.path.join(os.path.dirname(__file__), "..", "outils", "preparer_contours.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        carre = [[2.0000001, 48.0], [2.1, 48.0], [2.1, 48.123456789], [2.0000001, 48.0]]
+        resultat = module.convertir({"features": [
+            {"properties": {"codeDepartement": "ZA", "codeCirconscription": "ZA03"},
+             "geometry": {"type": "Polygon", "coordinates": [carre]}},
+            {"properties": {"codeDepartement": "2A", "codeCirconscription": "2A01"},
+             "geometry": {"type": "MultiPolygon", "coordinates": [[carre], [carre]]}}]})
+        # Code outre-mer du ministère traduit, numéro sans zéro initial, 5 décimales.
+        self.assertEqual(resultat["971"]["3"],
+                         [[[2.0, 48.0, 2.1, 48.0, 2.1, 48.12346, 2.0, 48.0]]])
+        self.assertEqual(len(resultat["2A"]["1"]), 2)
+
+    def test_depute_associe_a_chaque_contour(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            pathlib.Path(dossier, "10.json").write_text(
+                json.dumps({"2": [[[0, 0, 1, 0, 1, 1]]], "3": [[[5, 5, 6, 5, 6, 6]]]}))
+            deputes = [
+                {"acteur_uid": "PA1", "prenom": "Ada", "nom": "Durand", "en_exercice": 1,
+                 "num_departement": "10", "departement": "Aube", "num_circo": "2",
+                 "groupe_sigle": "UN"},
+                # Ancien député de la même circonscription : ne doit pas être retenu.
+                {"acteur_uid": "PA2", "prenom": "Léo", "nom": "Martin", "en_exercice": 0,
+                 "num_departement": "10", "departement": "Aube", "num_circo": "2",
+                 "groupe_sigle": "UN"}]
+            resultat = site.circonscriptions(
+                deputes, {"PA1": "deputes/ada-durand.html", "PA2": "deputes/leo-martin.html"},
+                dossier)
+        self.assertEqual(resultat["10"]["nom"], "Aube")
+        self.assertEqual(resultat["10"]["circos"]["2"]["depute"],
+                         {"nom": "Ada Durand", "groupe": "UN", "lien": "deputes/ada-durand.html"})
+        self.assertIsNone(resultat["10"]["circos"]["3"]["depute"])  # siège vacant
+
+    def test_contours_livres_avec_le_code(self):
+        fichiers = os.listdir(site.CONTOURS)
+        self.assertEqual(len(fichiers), 102)
+        total = sum(len(json.loads(pathlib.Path(site.CONTOURS, f).read_text()))
+                    for f in fichiers)
+        self.assertEqual(total, 559)

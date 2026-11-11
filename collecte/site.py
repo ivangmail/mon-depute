@@ -4,12 +4,15 @@ Le site est un simple dossier de fichiers HTML, régénéré après chaque mise 
 jour des données. Il peut être servi par n'importe quel hébergement.
 """
 
+import json
 import os
 from html import escape
 
 from . import fiche, indicateurs
 
 NOM_SITE = "Mon député"
+ICI = os.path.dirname(__file__)
+CONTOURS = os.path.join(ICI, "contours")
 
 STYLE = """
 :root{--fond:#fbfaf7;--surface:#fff;--texte:#1c1f26;--doux:#5b6270;--trait:#dfe1e6;
@@ -66,6 +69,20 @@ dl.contact dt{color:var(--doux)}dl.contact dd{margin:0;overflow-wrap:anywhere}
 border:1px solid var(--trait);background:var(--surface);color:var(--texte)}
 .recherche input{flex:1 1 260px;min-width:0}
 .recherche select{flex:1 1 220px;min-width:0;max-width:100%}
+.bloc{background:var(--surface);border:1px solid var(--trait);border-radius:12px;
+padding:18px 18px 12px;margin:24px 0}
+.bloc h2{margin:0 0 6px;padding:0;border:0;font-size:1.15rem}
+.bloc label{display:block;font-weight:600;margin-bottom:6px}
+.bloc input{width:100%;font:inherit;padding:10px 12px;border-radius:8px;
+border:1px solid var(--trait);background:var(--fond);color:var(--texte)}
+#suggestions{list-style:none;margin:6px 0 0;padding:0}
+#suggestions button{width:100%;text-align:left;font:inherit;padding:9px 12px;border:0;
+border-bottom:1px solid var(--trait);background:none;color:var(--texte);cursor:pointer}
+#suggestions button:hover,#suggestions button:focus-visible{background:var(--jauge)}
+#resultat{margin-top:12px}#resultat p{margin:0 0 6px}
+.alerte{background:var(--alerte);color:var(--alerte-texte);padding:8px 12px;border-radius:8px}
+.lien{font:inherit;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;
+text-decoration:underline}
 ul.liste{list-style:none;padding:0;margin:12px 0 0}
 ul.liste li{border-bottom:1px solid var(--trait)}
 ul.liste a{display:grid;grid-template-columns:1fr auto;gap:2px 16px;padding:10px 0;
@@ -143,6 +160,18 @@ def accueil(deputes, chemins):
 <p class="portrait">Le portrait de l’activité de chaque député à l’Assemblée nationale : ses votes,
  sa présence en commission, ses interventions, ses amendements et ses questions,
  à partir des données officielles.</p>
+<section class="bloc">
+<h2>Par votre adresse</h2>
+<label for="adresse">Votre adresse postale</label>
+<input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 boulevard du Port, Amiens">
+<ul id="suggestions"></ul>
+<div id="resultat" aria-live="polite"></div>
+<p class="doux petit">Votre adresse est envoyée par votre navigateur au service public de géocodage
+ de l’IGN, qui renvoie ses coordonnées. Ce site ne la reçoit pas et ne conserve rien.
+ <a href="methodologie.html#adresse">Comment la circonscription est trouvée</a>.
+ <button class="lien" id="etranger" type="button">J’habite à l’étranger</button></p>
+</section>
+<h2>Par nom ou département</h2>
 <form class="recherche" role="search" onsubmit="return false">
 <input id="q" type="search" autocomplete="off" aria-label="Rechercher un député"
  placeholder="Nom, département ou numéro de département">
@@ -153,6 +182,7 @@ def accueil(deputes, chemins):
 <details><summary>Députés ayant quitté l’Assemblée depuis le début de la législature ({len(anciens)})</summary>
 <ul class="liste">{''.join(_ligne(d, chemins[d['acteur_uid']]) for d in anciens)}</ul></details>
 <script src="recherche.js"></script>
+<script src="adresse.js"></script>
 """
 
 
@@ -258,6 +288,22 @@ def methodologie(db):
  député antérieur n’apparaît donc pas, et l’absence de mandat précédent sur une fiche ne
  signifie pas qu’il s’agit d’un premier mandat.</p>
 
+<h2 id="adresse">Trouver son député par adresse</h2>
+<p>L’adresse que vous saisissez est envoyée par votre navigateur au service public de géocodage
+ de l’IGN (Géoplateforme), qui s’appuie sur la Base Adresse Nationale et renvoie ses coordonnées.
+ Votre navigateur cherche ensuite dans quel contour de circonscription tombe ce point.
+ Ce site ne reçoit ni l’adresse ni les coordonnées.</p>
+<ul>
+<li>Les contours viennent du jeu « Contours géographiques des circonscriptions législatives »
+ publié sur data.gouv.fr par Jérôme Desboeufs sous Licence Ouverte 2.0, d’après les données du
+ ministère de l’Intérieur et de l’INSEE. Ce n’est pas un tracé officiel, et il est simplifié.</li>
+<li>À moins de 100 mètres d’une limite, le résultat peut être faux : le site l’indique et affiche
+ aussi la circonscription voisine. Seule votre carte électorale fait foi.</li>
+<li>Il n’existe pas de contours pour la Nouvelle-Calédonie, la Polynésie française,
+ Wallis-et-Futuna, Saint-Barthélemy et Saint-Martin, ni pour les Français établis hors de France :
+ la liste des députés est alors filtrée sur le territoire.</li>
+</ul>
+
 <h2 id="limites">Limites connues</h2>
 <ul>
 <li>Le nombre de députés suivis dépasse 577 : il inclut ceux qui ont quitté l’Assemblée
@@ -268,6 +314,30 @@ def methodologie(db):
 <li>Les données sont celles que publie l’Assemblée : une erreur à la source se retrouve ici.</li>
 </ul>
 """
+
+
+def circonscriptions(deputes, chemins, dossier_contours=CONTOURS):
+    """Associe à chaque contour de circonscription son député en exercice.
+
+    Renvoie {code département: {"nom": ..., "circos": {numéro: {"depute", "g"}}}}.
+    Un siège vacant donne "depute": None.
+    """
+    titulaires, noms = {}, {}
+    for d in deputes:
+        noms.setdefault(d["num_departement"], d["departement"])
+        if d["en_exercice"] and d["num_circo"]:
+            titulaires[(d["num_departement"], str(int(d["num_circo"])))] = {
+                "nom": f"{d['prenom']} {d['nom']}", "groupe": d["groupe_sigle"] or "",
+                "lien": chemins[d["acteur_uid"]]}
+    resultat = {}
+    for fichier in sorted(os.listdir(dossier_contours)):
+        code = fichier[:-5]
+        with open(os.path.join(dossier_contours, fichier), encoding="utf-8") as f:
+            contours = json.load(f)
+        resultat[code] = {"nom": noms.get(code, code), "circos": {
+            numero: {"depute": titulaires.get((code, numero)), "g": geometrie}
+            for numero, geometrie in contours.items()}}
+    return resultat
 
 
 def generer(db, dossier, journal=print):
@@ -292,6 +362,12 @@ def generer(db, dossier, journal=print):
 
     ecrire("style.css", STYLE)
     ecrire("recherche.js", RECHERCHE_JS)
+    with open(os.path.join(ICI, "adresse.js"), encoding="utf-8") as f:
+        ecrire("adresse.js", f.read())
+    os.makedirs(os.path.join(dossier, "circos"), exist_ok=True)
+    for code, contenu in circonscriptions(deputes, chemins).items():
+        ecrire(f"circos/{code}.json", json.dumps(contenu, ensure_ascii=False,
+                                                 separators=(",", ":")))
     ecrire("index.html", page(
         NOM_SITE, "L’activité de chaque député à l’Assemblée nationale : votes, présence"
         " en commission, interventions, amendements, questions.",

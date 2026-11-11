@@ -2,9 +2,9 @@
 
 Collecte quotidienne des données ouvertes de l'Assemblée nationale
 (17ᵉ législature) dans une base SQLite, calcul d'indicateurs d'activité et
-génération d'un site statique : une fiche par député, une recherche et une page
-Méthodologie. Restent à faire : la recherche par adresse, la newsletter et
-l'interpellation.
+génération d'un site statique : une fiche par député, une recherche par nom ou
+par adresse postale et une page Méthodologie. Restent à faire : la newsletter
+et l'interpellation.
 
 Python 3.10 ou plus, aucune dépendance à installer.
 
@@ -92,10 +92,35 @@ modification de l'un doit être reportée dans l'autre.
 - Décomptes : interventions, amendements, questions, propositions de loi.
 - Portrait rédigé automatiquement (`collecte/portrait.py`), sans appréciation.
 
-Le site est un dossier de fichiers statiques (environ 11 Mo, 655 fiches) qui
+Le site est un dossier de fichiers statiques (environ 20 Mo, 655 fiches) qui
 peut être servi par n'importe quel hébergement. Les liens vers les scrutins et
 les fiches officielles suivent les adresses du site de l'Assemblée
 (`/dyn/17/scrutins/<numéro>`, `/dyn/deputes/<identifiant>`).
+
+## Recherche par adresse
+
+Elle fonctionne entièrement dans le navigateur (`collecte/adresse.js`) :
+l'adresse saisie est envoyée au service public de géocodage de l'IGN
+(`data.geopf.fr/geocodage`), qui renvoie ses coordonnées, puis la
+circonscription est trouvée en cherchant dans quel contour tombe le point. Le
+site ne reçoit ni l'adresse ni les coordonnées.
+
+Les contours sont livrés avec le code, dans `collecte/contours/` (un fichier
+par département, 559 circonscriptions). Ils viennent du jeu « Contours
+géographiques des circonscriptions législatives » publié sur data.gouv.fr par
+Jérôme Desboeufs sous Licence Ouverte 2.0 (version p20 du 13/06/2024), d'après
+les données du ministère de l'Intérieur et de l'INSEE. Ce n'est pas un tracé
+officiel. Pour les régénérer après un redécoupage :
+
+```bash
+python3 outils/preparer_contours.py circonscriptions-legislatives-p20.geojson
+```
+
+À moins de 100 mètres d'une limite, le site prévient que le résultat peut être
+faux et affiche la circonscription voisine. Il n'existe pas de contours pour la
+Nouvelle-Calédonie, la Polynésie française, Wallis-et-Futuna, Saint-Barthélemy
+et Saint-Martin, ni pour les Français de l'étranger : la liste des députés est
+alors filtrée sur le territoire.
 
 ## Limites connues de la source
 
