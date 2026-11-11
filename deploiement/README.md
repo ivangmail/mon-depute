@@ -10,7 +10,9 @@ première installation.
 
 ## Ce qu'il faut avoir
 
-- un serveur (2 Go de mémoire au minimum, 4 Go recommandés, 10 Go de disque) ;
+- un serveur, même le plus petit : la mise à jour quotidienne complète a été
+  mesurée à 145 Mo de mémoire au maximum, un peu plus de 2 minutes sur 4 cœurs
+  et environ 2 Go de disque (1 Go de mémoire et 10 Go de disque suffisent) ;
 - un nom de domaine dont l'enregistrement A pointe vers le serveur ;
 - un compte chez un prestataire d'envoi d'e-mails, avec le domaine vérifié
   (enregistrements SPF, DKIM et DMARC fournis par le prestataire) et des
