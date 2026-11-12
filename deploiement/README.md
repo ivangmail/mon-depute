@@ -4,9 +4,10 @@ Ces fichiers décrivent l'installation sur un serveur Debian ou Ubuntu : le
 site statique, le service de la lettre et la mise à jour quotidienne sur une
 même machine, derrière Caddy.
 
-**Première installation en cours** sur une Instance Scaleway (Debian 13) : ce
-guide est corrigé au fil de cette installation et n'a pas encore été déroulé
-jusqu'au bout.
+Ce guide a été déroulé une fois, le 12/11/2026, sur une Instance Scaleway
+STARDUST1-S (Debian 13, 1 Go de mémoire), avec le domaine et l'envoi d'e-mails
+chez Scaleway : site en HTTPS, abonnement et e-mail de confirmation vérifiés.
+Sur un autre hébergeur ou un autre système, des ajustements restent possibles.
 
 ## Ce qu'il faut avoir
 
@@ -64,6 +65,19 @@ le régénérer à la main :
 ```bash
 runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m collecte --donnees /srv/mon-depute/donnees --site /srv/mon-depute/site site'
 ```
+
+## Envoi d'e-mails avec Scaleway Transactional Email
+
+Dans `/etc/mon-depute.env` : hôte `smtp.tem.scaleway.com`, port `2465` (les
+ports 25, 465 et 587 sont bloqués par défaut sur les Instances Scaleway),
+utilisateur = identifiant du projet, mot de passe = clé secrète d'une clé d'API
+autorisée pour Transactional Email. Une erreur `535 Invalid credentials` dans
+`journalctl -u mon-depute-lettre.service` signale un identifiant ou une clé
+erronés ; la connexion elle-même fonctionne alors.
+
+Tant que le domaine n'est pas prêt, on peut tout essayer sans rien envoyer :
+remplacer les variables `MD_SMTP_*` par `MD_DOSSIER_COURRIELS=/srv/mon-depute/donnees/courriels`,
+les e-mails y sont écrits sous forme de fichiers.
 
 ## Vérifier
 

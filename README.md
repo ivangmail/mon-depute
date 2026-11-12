@@ -3,9 +3,8 @@
 Collecte quotidienne des données ouvertes de l'Assemblée nationale
 (17ᵉ législature) dans une base SQLite, calcul d'indicateurs d'activité et
 génération d'un site statique : une fiche par député, une recherche par nom ou
-par adresse postale et une page Méthodologie. Une lettre d'information par
-circonscription est prête, mais pas encore déployée. Reste à faire :
-l'interpellation.
+par adresse postale, une page Méthodologie et une lettre d'information par
+circonscription. Reste à faire : l'interpellation.
 
 Python 3.10 ou plus, aucune dépendance à installer.
 
