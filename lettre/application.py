@@ -6,6 +6,7 @@ limitation de débit se fait en mémoire, et s'efface au redémarrage.
 
 import json
 import sqlite3
+import sys
 import time
 from html import escape
 from urllib.parse import parse_qs
@@ -115,6 +116,23 @@ class Application:
             abonne, envoi = abonnes.inscrire(db, email, circo[0], circo[1], champs["frequence"])
         finally:
             db.close()
+        try:
+            self._courriel_abonnement(abonne, envoi, email, circo)
+        except Exception as erreur:  # panne du prestataire d'envoi, identifiants refusés…
+            # L'erreur va dans le journal du service, sans l'adresse de la personne.
+            print(f"Envoi impossible : {type(erreur).__name__} : {erreur}",
+                  file=sys.stderr, flush=True)
+            db = self._abonnes()
+            try:
+                abonnes.annuler_courriel(db, abonne["id"])
+            finally:
+                db.close()
+            return self._json({"erreur": "L'envoi des e-mails est momentanément indisponible. "
+                                         "Votre demande n'a pas été enregistrée : réessayez "
+                                         "plus tard."}, "503 Service Unavailable")
+        return self._json({"message": REPONSE_NEUTRE})
+
+    def _courriel_abonnement(self, abonne, envoi, email, circo):
         if envoi:
             liens = self.liens(abonne["id"])
             lieu = f"{ordinal(circo[1], feminin=True)} circonscription, {circo[2]}"
@@ -131,7 +149,6 @@ class Application:
                 texte = (f"Bonjour,\n\nVous êtes déjà abonné à l'activité du député de la {lieu}.\n\n"
                          f"Pour changer la fréquence ou vous désabonner :\n{liens['gerer']}\n")
             courriel.envoyer(self.config, courriel.construire(self.config, email, sujet, texte))
-        return self._json({"message": REPONSE_NEUTRE})
 
     def confirmer(self, jeton):
         identifiant = abonnes.verifier(self.config.secret, jeton, "confirmer")

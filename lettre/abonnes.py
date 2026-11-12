@@ -126,6 +126,14 @@ def inscrire(db, email, departement, circo, frequence, instant=None):
         "confirmation"
 
 
+def annuler_courriel(db, identifiant):
+    """L'e-mail n'est pas parti : on lève le délai d'attente, pour que la personne
+    puisse réessayer, et on efface l'inscription si elle n'avait jamais été confirmée."""
+    db.execute("DELETE FROM abonnes WHERE id = ? AND statut = 'attente'", (identifiant,))
+    db.execute("UPDATE abonnes SET dernier_courriel_le = NULL WHERE id = ?", (identifiant,))
+    db.commit()
+
+
 def lire(db, identifiant):
     return db.execute("SELECT * FROM abonnes WHERE id = ?", (identifiant,)).fetchone()
 

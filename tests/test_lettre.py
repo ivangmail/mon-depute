@@ -200,6 +200,29 @@ class Lettre(unittest.TestCase):
         self.assertEqual(len(self.courriels()), 1)                # un seul e-mail est parti
         self.assertEqual([l["email"] for l in self.lignes()], ["ada@exemple.fr"])
 
+    def test_envoi_en_panne(self):
+        from unittest import mock
+        with mock.patch("lettre.courriel.envoyer", side_effect=OSError("refusé")), \
+                mock.patch("sys.stderr"):
+            statut, _, corps = self.demande()
+        self.assertEqual(statut, "503 Service Unavailable")
+        self.assertIn("momentanément indisponible", json.loads(corps)["erreur"])
+        self.assertEqual(self.lignes(), [])   # rien n'est gardé : la personne peut réessayer
+        self.assertEqual(self.demande()[0], "200 OK")
+        self.assertEqual(len(self.courriels()), 1)
+        # Pour une personne déjà abonnée, la panne ne supprime pas l'abonnement.
+        db = abonnes.ouvrir(self.config.abonnes)
+        identifiant = self.lignes()[0]["id"]
+        abonnes.confirmer(db, identifiant)
+        db.execute("UPDATE abonnes SET dernier_courriel_le = NULL")
+        db.commit()
+        db.close()
+        with mock.patch("lettre.courriel.envoyer", side_effect=OSError("refusé")), \
+                mock.patch("sys.stderr"):
+            self.assertEqual(self.demande()[0], "503 Service Unavailable")
+        self.assertEqual([(l["statut"], l["dernier_courriel_le"]) for l in self.lignes()],
+                         [("actif", None)])
+
     def test_limite_par_adresse_ip(self):
         for n in range(LIMITE_PAR_IP):
             self.assertEqual(self.demande(email=f"a{n}@exemple.fr")[0], "200 OK")
