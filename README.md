@@ -49,16 +49,13 @@ par jour en fin de matinée : les sources sont régénérées par l'Assemblée d
 la nuit et la matinée. La commande renvoie un code d'erreur si un jeu échoue ;
 les autres jeux sont tout de même mis à jour.
 
-## Publication automatique
+## Publication
 
-Le fichier `.github/workflows/publication.yml` lance chaque jour les tests, la
-collecte, le calcul des indicateurs et la génération du site, puis publie le
-dossier `site/` sur GitHub Pages. Il se lance aussi à chaque modification de la
-branche `main` et à la demande (onglet Actions, bouton « Run workflow »).
-
-Si un jeu de données échoue, rien n'est publié : la version de la veille reste
-en ligne. GitHub suspend les tâches planifiées d'un dépôt resté 60 jours sans
-activité ; il suffit alors de les réactiver dans l'onglet Actions.
+Le site est publié depuis son propre serveur, où une tâche quotidienne lance la
+collecte, le calcul des indicateurs, la génération du site et l'envoi des
+lettres : voir `deploiement/README.md`. Sur GitHub, le fichier
+`.github/workflows/tests.yml` se contente de lancer les tests à chaque
+modification.
 
 ## Données chargées
 
