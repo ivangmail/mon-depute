@@ -25,6 +25,24 @@ def intitule(titre):
     return fiche.majuscule(titre or "").rstrip(". ")
 
 
+MARQUE = "\x00"  # encadre, dans un élément de liste, la partie qui porte le lien
+
+
+def lier(avant, lie, apres=""):
+    """Élément de liste dont seule la partie « lie » sera cliquable : une ligne
+    entièrement soulignée est pénible à lire dans une messagerie."""
+    return f"{avant}{MARQUE}{lie}{MARQUE}{apres}"
+
+
+def _element_html(texte, url):
+    if not url:
+        return escape(texte.replace(MARQUE, ""))
+    if MARQUE not in texte:
+        return f'<a href="{escape(url)}">{escape(texte)}</a>'
+    avant, lie, apres = texte.split(MARQUE, 2)
+    return f'{escape(avant)}<a href="{escape(url)}">{escape(lie)}</a>{escape(apres)}'
+
+
 def votes_par_texte(votes):
     """Regroupe des votes par dossier législatif, du plus voté au moins voté.
 
@@ -196,8 +214,8 @@ def rubriques(l):
     else:
         phrases.append("Aucun scrutin public ne s'est tenu pendant la période.")
     for s in l["solennels"]:
-        elements.append((f"{jour(s['date'])} · {fiche.LIBELLES_POSITION[s['position']]} · "
-                         f"{intitule(s['titre'])} ({s['sort']})",
+        elements.append((lier(f"{jour(s['date'])} · {fiche.LIBELLES_POSITION[s['position']]} · ",
+                              intitule(s["titre"]), f" ({s['sort']})"),
                          fiche.URL_SCRUTIN.format(s["numero"])))
     if l["solennels"]:
         phrases.append("Ses votes sur les textes entiers (scrutins solennels) :")
@@ -207,7 +225,8 @@ def rubriques(l):
     if autres:
         n = len(autres)
         groupes = votes_par_texte(autres)
-        elements = [(f"{g['texte']} : {_pluriel(g['total'], 'vote')} ({g['detail']})", g["lien"])
+        elements = [(lier("", g["texte"], f" : {_pluriel(g['total'], 'vote')} ({g['detail']})"),
+                     g["lien"])
                     for g in groupes[:LIMITE]]
         if len(groupes) > LIMITE:
             reste = sum(g["total"] for g in groupes[LIMITE:])
@@ -224,8 +243,8 @@ def rubriques(l):
             "Votes contre la ligne de son groupe",
             [f"{_pluriel(n, 'vote différent', 'votes différents')} de la position majoritaire "
              f"du groupe {l['sigle']}" + (f", dont les {LIMITE} premiers :" if n > LIMITE else " :")],
-            [(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} (groupe : "
-              f"{fiche.LIBELLES_POSITION[v['ligne']].lower()}) · {intitule(v['titre'])}",
+            [(lier(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} (groupe : "
+                   f"{fiche.LIBELLES_POSITION[v['ligne']].lower()}) · ", intitule(v["titre"])),
               fiche.URL_SCRUTIN.format(v["numero"])) for v in l["dissidents"][:LIMITE]]))
 
     if l["interventions"]:
@@ -301,14 +320,13 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement):
             f'<p style="margin:0 0 20px;color:#5b6270">{escape(entete.split(", ", 1)[1])}'
             f'<br>Activité {escape(periode)}</p>']
     for titre, phrases, elements in rubriques(l):
-        texte += [titre.upper()] + phrases + [f"- {t}" + (f"\n  {u}" if u else "")
+        texte += [titre.upper()] + phrases + [f"- {t.replace(MARQUE, '')}" + (f"\n  {u}" if u else "")
                                               for t, u in elements] + [""]
         html.append(f'<h2 style="font-size:16px;margin:22px 0 6px">{escape(titre)}</h2>')
         html += [f'<p style="margin:0 0 6px">{escape(p)}</p>' for p in phrases]
         if elements:
             html.append('<ul style="margin:0 0 6px;padding-left:20px">' + "".join(
-                "<li>" + (f'<a href="{escape(u)}">{escape(t)}</a>' if u else escape(t)) + "</li>"
-                for t, u in elements) + "</ul>")
+                f"<li>{_element_html(t, u)}</li>" for t, u in elements) + "</ul>")
     texte += [f"Sa fiche complète : {lien_fiche}", f"Comment c'est calculé : {methode}", "",
               pied, "",
               f"Changer la fréquence ou gérer votre abonnement : {lien_gestion}",

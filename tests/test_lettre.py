@@ -335,6 +335,10 @@ class Lettre(unittest.TestCase):
         sujet, texte, html = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
         self.assertIn("10/07/2025 · Contre · Le texte B (rejeté)", texte)
         self.assertIn("<a href=\"https://a/d\">Vous désabonner</a>", html)
+        # Seul l'intitulé du scrutin est cliquable, pas la ligne entière.
+        self.assertIn('<li>10/07/2025 · Contre · <a href="https://www.assemblee-nationale.fr'
+                      '/dyn/17/scrutins/2">Le texte B</a> (rejeté)</li>', html)
+        self.assertNotIn(contenu.MARQUE, texte + html + sujet)
         db.close()
 
     def test_contenu_detaille(self):
