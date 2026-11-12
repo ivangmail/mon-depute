@@ -397,3 +397,59 @@ class MentionsLegales(unittest.TestCase):
             confidentialite = pathlib.Path(avec, "confidentialite.html").read_text("utf-8")
             self.assertIn("Le responsable du traitement est Ada &lt;Durand&gt;.", confidentialite)
             self.assertIn("écrivez à contact@exemple.fr", confidentialite)
+
+
+class EcrireAuDepute(unittest.TestCase):
+    ACTEUR = {"civilite": "Mme", "prenom": "Ada", "nom": "Durand"}
+    DEPUTE = {"num_circo": "2", "departement": "Aube"}
+
+    def test_adresse_officielle_preferee(self):
+        contacts = [{"type": "Mèl", "valeur": "permanence@exemple.fr"},
+                    {"type": "Twitter", "valeur": "@ada"},
+                    {"type": "Mèl", "valeur": "Ada.Durand@assemblee-nationale.fr"}]
+        self.assertEqual(fiche.adresse_officielle(contacts), "Ada.Durand@assemblee-nationale.fr")
+        self.assertEqual(fiche.adresse_officielle(contacts[:2]), "permanence@exemple.fr")
+        self.assertIsNone(fiche.adresse_officielle(contacts[1:2]))
+
+    def test_message_et_lien(self):
+        from urllib.parse import parse_qs, unquote, urlsplit
+        objet, texte = fiche.message_au_depute(self.ACTEUR, self.DEPUTE)
+        self.assertTrue(texte.startswith("Madame la députée,\n\nJ'habite votre circonscription"
+                                         " (2e circonscription, Aube)."))
+        self.assertIn("[Votre message]", texte)
+        scrutin = {"numero": 12, "date": "2026-11-04", "titre": "le projet de loi & annexes.",
+                   "position": "abstention"}
+        objet, texte = fiche.message_au_depute(self.ACTEUR, self.DEPUTE, scrutin)
+        self.assertEqual(objet, "Votre vote du 04/11/2026 (scrutin n° 12)")
+        self.assertIn("portant sur le projet de loi & annexes, vous vous êtes abstenue.", texte)
+        self.assertIn("https://www.assemblee-nationale.fr/dyn/17/scrutins/12", texte)
+        absente = dict(scrutin, position=None)
+        self.assertIn("vous n'avez pas pris part au vote",
+                      fiche.message_au_depute(dict(self.ACTEUR, civilite="M."), self.DEPUTE,
+                                              absente)[1])
+        # Le lien ne doit contenir aucun caractère brut qui casserait l'adresse.
+        lien = fiche.lien_courriel("ada@exemple.fr", objet, texte)
+        parties = urlsplit(lien)
+        self.assertEqual((parties.scheme, parties.path), ("mailto", "ada@exemple.fr"))
+        self.assertNotRegex(parties.query, r"[ \n&]annexes")
+        champs = parse_qs(parties.query)
+        self.assertEqual((champs["subject"][0], champs["body"][0]), (objet, texte))
+
+    def test_fiche(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            db = base_indicateurs(dossier)
+            db.execute("INSERT INTO contacts VALUES ('AD1', 'PA1', 'Mèl',"
+                       " 'Ada.Durand@assemblee-nationale.fr')")
+            db.execute("UPDATE deputes SET en_exercice = 0 WHERE acteur_uid = 'PA2'")
+            db.execute("INSERT INTO contacts VALUES ('AD2', 'PA2', 'Mèl', 'leo@exemple.fr')")
+            _, _, actif = fiche.corps(db, "PA1")
+            _, _, ancien = fiche.corps(db, "PA2")
+            _, _, sans_adresse = fiche.corps(db, "PA3")
+            db.close()
+        self.assertIn('class="bouton" href="mailto:Ada.Durand@assemblee-nationale.fr?subject=',
+                      actif)
+        self.assertIn("L’interroger sur ce vote", actif)
+        self.assertIn("scrutin%20n%C2%B0%202", actif)
+        for page in (ancien, sans_adresse):   # ancien député, ou pas d'adresse publiée
+            self.assertNotIn('class="bouton"', page)
+            self.assertNotIn("interroger", page)

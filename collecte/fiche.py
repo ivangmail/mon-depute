@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from urllib.parse import quote
 from email.utils import parsedate_to_datetime
 from html import escape
 
@@ -125,6 +126,62 @@ def _position(position):
     return f'<span class="pos {classe}">{escape(LIBELLES_POSITION.get(position, position))}</span>'
 
 
+def adresse_officielle(contacts):
+    """Adresse e-mail à laquelle écrire au député : celle de l'Assemblée si elle
+    est publiée, sinon la première adresse connue."""
+    adresses = [c["valeur"] for c in contacts if c["type"] == "Mèl" and "@" in c["valeur"]]
+    officielles = [a for a in adresses if a.lower().endswith("@assemblee-nationale.fr")]
+    return (officielles or adresses or [None])[0]
+
+
+def lien_courriel(adresse, objet, corps_message):
+    """Lien qui ouvre la messagerie du visiteur avec un message pré-rempli.
+    Le message part de sa propre messagerie : le site n'en voit rien."""
+    return (f"mailto:{quote(adresse, safe='@')}?subject={quote(objet, safe='')}"
+            f"&body={quote(corps_message, safe='')}")
+
+
+def message_au_depute(acteur, depute, scrutin=None):
+    """Objet et texte du message pré-rempli, à compléter par le visiteur.
+
+    scrutin : s'il est fourni (numero, date, titre, position), le message
+    rappelle le vote sur lequel porte la question.
+    """
+    femme = acteur["civilite"] == "Mme"
+    salutation = "Madame la députée," if femme else "Monsieur le député,"
+    lieu = ""
+    if depute["num_circo"]:
+        lieu = (f" ({portrait.ordinal(depute['num_circo'], feminin=True)} circonscription, "
+                f"{depute['departement']})")
+    lignes = [salutation, "", f"J'habite votre circonscription{lieu}.", ""]
+    objet = "Message d'un habitant de votre circonscription"
+    if scrutin:
+        e = "e" if femme else ""
+        constat = {
+            "pour": "vous avez voté pour",
+            "contre": "vous avez voté contre",
+            "abstention": f"vous vous êtes abstenu{e}",
+            None: "vous n'avez pas pris part au vote",
+        }.get(scrutin["position"], f"vous étiez noté{e} non-votant{e}")
+        objet = f"Votre vote du {jour(scrutin['date'])} (scrutin n° {scrutin['numero']})"
+        lignes += [f"Lors du scrutin public n° {scrutin['numero']} du {jour(scrutin['date'])}, "
+                   f"portant sur {(scrutin['titre'] or 'un texte').rstrip('. ')}, {constat}.",
+                   URL_SCRUTIN.format(scrutin["numero"]), "",
+                   "[Votre question sur ce vote]", ""]
+    else:
+        lignes += ["[Votre message]", ""]
+    lignes += ["Je vous remercie de votre réponse.", "", "[Vos prénom, nom et commune]"]
+    return objet, "\n".join(lignes)
+
+
+def _interroger(adresse, acteur, depute, scrutin):
+    if not adresse:
+        return ""
+    objet, texte = message_au_depute(acteur, depute, scrutin)
+    return (f' <a class="interroger" href="{escape(lien_courriel(adresse, objet, texte))}">'
+            "L’interroger sur ce vote</a>")
+
+
 def _lien_scrutin(numero, titre):
     return (f'<a href="{URL_SCRUTIN.format(numero)}" rel="noopener">'
             f'{escape(majuscule(titre or "Scrutin n° " + str(numero)))}</a>')
@@ -210,6 +267,15 @@ def corps(db, uid, racine="", api_url=None):
     contacts = db.execute("SELECT type, valeur FROM contacts WHERE acteur_uid = ?",
                           (uid,)).fetchall()
 
+    # On n'écrit qu'à un député en exercice.
+    adresse = adresse_officielle(contacts) if d["en_exercice"] else None
+    ecrire = ""
+    if adresse:
+        objet, texte = message_au_depute(a, d)
+        ecrire = f"""<p><a class="bouton" href="{escape(lien_courriel(adresse, objet, texte))}">Écrire à {escape(nom)}</a></p>
+<p class="doux petit">Ce bouton ouvre votre messagerie avec un message à compléter, adressé à {escape(adresse)}.
+ Le message part de votre propre adresse : ce site ne le voit pas et n’en garde aucune trace.
+ Si rien ne s’ouvre, copiez l’adresse ci-dessous dans votre messagerie.</p>"""
     lignes_contact = []
     for genre in CONTACTS_AFFICHES:
         for c in contacts:
@@ -262,7 +328,8 @@ def corps(db, uid, racine="", api_url=None):
 
 <h3>Ses votes sur les textes entiers</h3>
 {_tableau(["Date", "Son vote", "Scrutin solennel", "Résultat"],
-          [(jour(v['date']), _position(v['position']), _lien_scrutin(v['numero'], v['titre']),
+          [(jour(v['date']), _position(v['position']),
+            _lien_scrutin(v['numero'], v['titre']) + _interroger(adresse, a, d, v),
             escape(majuscule(v['sort'] or ''))) for v in solennels],
           "Aucun scrutin solennel pendant son mandat.")}
 
@@ -273,7 +340,8 @@ def corps(db, uid, racine="", api_url=None):
 {_tableau(["Date", "Son vote", "Son groupe", "Scrutin"],
           [(jour(v['date']), _position(v['position']),
             f"{escape(v['groupe'] or '')} : {escape(LIBELLES_POSITION[v['ligne']].lower())}",
-            _lien_scrutin(v['numero'], v['titre'])) for v in dissidents],
+            _lien_scrutin(v['numero'], v['titre']) + _interroger(adresse, a, d, v))
+           for v in dissidents],
           "Aucun vote contraire à la ligne de son groupe.")}
 </section>
 
@@ -312,7 +380,8 @@ def corps(db, uid, racine="", api_url=None):
 
 {formulaire_abonnement(nom, d, racine, api_url) if api_url and d['en_exercice'] else ''}
 <section>
-<h2>Le contacter</h2>
+<h2>Lui écrire</h2>
+{ecrire}
 <dl class="contact">{''.join(lignes_contact) or '<dt>Contact</dt><dd>Aucun contact publié.</dd>'}</dl>
 <p><a href="{URL_DEPUTE.format(escape(uid))}" rel="noopener">Sa fiche officielle sur le site de l’Assemblée nationale</a></p>
 </section>
