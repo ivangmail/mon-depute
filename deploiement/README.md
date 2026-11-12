@@ -55,7 +55,15 @@ systemctl enable --now mon-depute-lettre.service mon-depute-quotidien.timer
 systemctl reload caddy
 ```
 
-La première collecte prend quelques minutes.
+La première collecte prend une dizaine de minutes sur un serveur à un cœur.
+
+La mise à jour quotidienne ne régénère le site que si les données ont changé.
+Après une modification de `/etc/mon-depute.env` (adresse du site, par exemple),
+le régénérer à la main :
+
+```bash
+runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m collecte --donnees /srv/mon-depute/donnees --site /srv/mon-depute/site site'
+```
 
 ## Vérifier
 
