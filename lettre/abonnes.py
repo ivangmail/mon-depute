@@ -6,10 +6,14 @@ Ni nom, ni adresse postale, ni adresse IP.
 """
 
 import datetime
+import gzip
 import hashlib
 import hmac
+import os
 import re
+import shutil
 import sqlite3
+import tempfile
 
 FREQUENCES = {"hebdomadaire": 7, "mensuelle": 30}
 DELAI_CONFIRMATION = 7       # jours avant suppression d'une inscription non confirmée
@@ -169,6 +173,37 @@ def purger(db, instant=None):
     return curseur.rowcount
 
 
+def premiere_periode(frequence, instant=None):
+    """Bornes (début inclus, fin exclue) de la première lettre d'un abonné."""
+    fin = (instant or maintenant()).date() - datetime.timedelta(days=DECALAGE)
+    debut = fin - datetime.timedelta(days=FREQUENCES[frequence])
+    return debut.isoformat(), fin.isoformat()
+
+
+def sauvegarder(chemin_base, dossier, conserver=14, instant=None):
+    """Écrit une copie cohérente et datée de la base des abonnés, compressée,
+    et ne garde que les plus récentes. Renvoie le chemin de la copie."""
+    instant = instant or maintenant()
+    os.makedirs(dossier, mode=0o700, exist_ok=True)
+    destination = os.path.join(dossier, f"abonnes-{instant.strftime('%Y%m%d-%H%M%S')}.sqlite.gz")
+    with tempfile.TemporaryDirectory(dir=dossier) as temporaire:
+        copie = os.path.join(temporaire, "copie.sqlite")
+        source, cible = sqlite3.connect(chemin_base), sqlite3.connect(copie)
+        try:
+            source.backup(cible)  # copie cohérente, même si le service écrit au même moment
+        finally:
+            source.close()
+            cible.close()
+        with open(copie, "rb") as lecture, gzip.open(destination, "wb") as ecriture:
+            shutil.copyfileobj(lecture, ecriture)
+    os.chmod(destination, 0o600)
+    anciennes = sorted(f for f in os.listdir(dossier)
+                       if f.startswith("abonnes-") and f.endswith(".sqlite.gz"))[:-conserver]
+    for nom in anciennes:
+        os.remove(os.path.join(dossier, nom))
+    return destination
+
+
 def dus(db, instant=None):
     """Abonnés actifs dont la période est écoulée, avec les bornes de leur lettre.
 
@@ -187,7 +222,7 @@ def dus(db, instant=None):
                 continue
             debut = max(debut, fin - datetime.timedelta(days=PERIODE_MAX))
         else:
-            debut = fin - datetime.timedelta(days=jours)
+            debut = fin - datetime.timedelta(days=jours)  # voir premiere_periode()
         resultat.append((a, debut.isoformat(), fin.isoformat()))
     return resultat
 

@@ -374,3 +374,26 @@ class PresenceEnCommission(unittest.TestCase):
             comptees = [l[0] for l in db.execute("SELECT uid FROM reunions_comptees ORDER BY 1")]
             self.assertEqual(comptees, ["R1", "R2"])
             db.close()
+
+
+class MentionsLegales(unittest.TestCase):
+    def test_page_generee_seulement_avec_un_editeur(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            db = base_indicateurs(dossier)
+            sans = os.path.join(dossier, "sans")
+            site.generer(db, sans, journal=lambda m: None)
+            self.assertFalse(os.path.exists(os.path.join(sans, "mentions-legales.html")))
+            self.assertNotIn("mentions-legales", pathlib.Path(sans, "index.html").read_text("utf-8"))
+            avec = os.path.join(dossier, "avec")
+            site.generer(db, avec, journal=lambda m: None, api_url="https://a.fr",
+                         editeur="Ada <Durand>", contact="contact@exemple.fr")
+            db.close()
+            mentions = pathlib.Path(avec, "mentions-legales.html").read_text("utf-8")
+            self.assertIn("Ada &lt;Durand&gt;", mentions)   # le nom est échappé
+            self.assertIn("contact@exemple.fr", mentions)
+            self.assertIn("Scaleway SAS", mentions)
+            fiche_html = pathlib.Path(avec, "deputes", "ada-durand.html").read_text("utf-8")
+            self.assertIn('href="../mentions-legales.html"', fiche_html)
+            confidentialite = pathlib.Path(avec, "confidentialite.html").read_text("utf-8")
+            self.assertIn("Le responsable du traitement est Ada &lt;Durand&gt;.", confidentialite)
+            self.assertIn("écrivez à contact@exemple.fr", confidentialite)

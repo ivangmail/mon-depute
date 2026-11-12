@@ -125,7 +125,9 @@ RECHERCHE_JS = """
 """
 
 
-def page(titre, description, contenu, racine, fraicheur):
+def page(titre, description, contenu, racine, fraicheur, mentions=False):
+    lien_mentions = (f' · <a href="{racine}mentions-legales.html">Mentions légales</a>'
+                     if mentions else "")
     return f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -140,7 +142,7 @@ def page(titre, description, contenu, racine, fraicheur):
 <footer><div>Source : Assemblée nationale, données ouvertes publiées sous Licence Ouverte
  (data.assemblee-nationale.fr). Ce site n’est pas un site officiel de l’Assemblée nationale.
  Seuls les documents officiels font foi.
- <a href="{racine}confidentialite.html">Confidentialité</a></div></footer>
+ <a href="{racine}confidentialite.html">Confidentialité</a>{lien_mentions}</div></footer>
 </body></html>
 """
 
@@ -374,7 +376,53 @@ def adresses_fiches(deputes):
     return chemins
 
 
-def confidentialite(api_url):
+HEBERGEUR = "Scaleway SAS, 8 rue de la Ville-l’Évêque, 75008 Paris, RCS Paris 433 115 904"
+DEPOT = "https://github.com/ivangmail/mon-depute"
+
+
+def mentions_legales(editeur, contact, hebergeur):
+    joindre = (f"<p>Contact : {escape(contact)}</p>" if contact else "")
+    return f"""
+<h1>Mentions légales</h1>
+
+<h2>Éditeur</h2>
+<p>Ce site est édité à titre personnel et non professionnel par {escape(editeur)},
+ qui en est aussi le directeur de la publication.</p>
+{joindre}
+
+<h2>Hébergeur</h2>
+<p>{escape(hebergeur)}.</p>
+
+<h2>Nature du site</h2>
+<p>{escape(NOM_SITE)} est un site indépendant. Ce n’est pas un site officiel de l’Assemblée nationale,
+ et il n’est lié à aucun parti, groupe politique ni élu. Il ne publie ni classement ni note des députés.</p>
+
+<h2>Données et sources</h2>
+<p>Les données sur les députés et leur activité proviennent des données ouvertes de l’Assemblée
+ nationale (data.assemblee-nationale.fr), réutilisées sous Licence Ouverte. Les contours des
+ circonscriptions viennent du jeu « Contours géographiques des circonscriptions législatives »
+ publié sur data.gouv.fr par Jérôme Desboeufs, sous Licence Ouverte 2.0. Les calculs sont décrits
+ dans la page <a href="methodologie.html">Méthodologie</a>. Seuls les documents officiels font foi.</p>
+
+<h2>Signaler une erreur</h2>
+<p>Les chiffres affichés sont calculés automatiquement à partir des données publiées par
+ l’Assemblée. Une erreur à la source se retrouve ici ; une erreur de calcul est aussi possible.
+ {('Vous pouvez la signaler à l’adresse ci-dessus.' if contact else '')}</p>
+
+<h2>Code source</h2>
+<p>Le code de ce site est public : <a href="{DEPOT}">{DEPOT}</a>.</p>
+
+<h2>Données personnelles</h2>
+<p>Voir la page <a href="confidentialite.html">Confidentialité</a>.</p>
+"""
+
+
+def confidentialite(api_url, editeur=None, contact=None):
+    responsable = ""
+    if editeur:
+        responsable = (f"<p>Le responsable du traitement est {escape(editeur)}."
+                       + (f" Pour exercer vos droits, écrivez à {escape(contact)}." if contact else "")
+                       + "</p>")
     lettre = """
 <h2>La lettre d’information</h2>
 <p>Si vous vous abonnez à l’activité d’un député, sont conservées : votre adresse e-mail, la
@@ -393,7 +441,7 @@ def confidentialite(api_url):
  votre adresse pour cette seule opération.</li>
 </ul>
 <p>Vous disposez d’un droit d’accès, de rectification et d’effacement de ces données, et du droit
- d’introduire une réclamation auprès de la CNIL.</p>""" if api_url else ""
+ d’introduire une réclamation auprès de la CNIL.</p>""" + responsable if api_url else ""
     return f"""
 <h1>Confidentialité</h1>
 <p class="portrait">Ce site se consulte sans compte et ne dépose aucun cookie.</p>
@@ -410,8 +458,12 @@ def confidentialite(api_url):
 """
 
 
-def generer(db, dossier, journal=print, api_url=None):
+def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None,
+            hebergeur=None):
+    """editeur : nom de l'éditeur du site. S'il est fourni, la page Mentions
+    légales est générée et liée depuis le pied de chaque page."""
     api_url = (api_url or "").rstrip("/") or None
+    mentions = bool(editeur)
     fraicheur = fiche.date_source(l[0] for l in db.execute("SELECT last_modified FROM imports"))
     deputes = lister_deputes(db)
     os.makedirs(os.path.join(dossier, "deputes"), exist_ok=True)
@@ -429,7 +481,11 @@ def generer(db, dossier, journal=print, api_url=None):
             ecrire(script, f.read())
     ecrire("confidentialite.html", page(
         f"Confidentialité · {NOM_SITE}", "Ce que ce site reçoit, conserve, et ne conserve pas.",
-        confidentialite(api_url), "", fraicheur))
+        confidentialite(api_url, editeur, contact), "", fraicheur, mentions))
+    if mentions:
+        ecrire("mentions-legales.html", page(
+            f"Mentions légales · {NOM_SITE}", "Éditeur, hébergeur et sources du site.",
+            mentions_legales(editeur, contact, hebergeur or HEBERGEUR), "", fraicheur, mentions))
     os.makedirs(os.path.join(dossier, "circos"), exist_ok=True)
     for code, contenu in circonscriptions(deputes, chemins).items():
         ecrire(f"circos/{code}.json", json.dumps(contenu, ensure_ascii=False,
@@ -437,14 +493,14 @@ def generer(db, dossier, journal=print, api_url=None):
     ecrire("index.html", page(
         NOM_SITE, "L’activité de chaque député à l’Assemblée nationale : votes, présence"
         " en commission, interventions, amendements, questions.",
-        accueil(deputes, chemins), "", fraicheur))
+        accueil(deputes, chemins), "", fraicheur, mentions))
     ecrire("methodologie.html", page(
         f"Méthodologie · {NOM_SITE}", "Comment chaque indicateur est calculé, et ses limites.",
-        methodologie(db), "", fraicheur))
+        methodologie(db), "", fraicheur, mentions))
     for d in deputes:
         titre, description, contenu = fiche.corps(db, d["acteur_uid"], racine="../",
                                                   api_url=api_url)
         ecrire(chemins[d["acteur_uid"]],
-               page(f"{titre} · {NOM_SITE}", description, contenu, "../", fraicheur))
+               page(f"{titre} · {NOM_SITE}", description, contenu, "../", fraicheur, mentions))
     journal(f"{len(deputes)} fiches écrites dans {dossier}")
     return chemins

@@ -96,8 +96,23 @@ runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depu
 ## Sauvegarde
 
 Le seul fichier à sauvegarder est `/srv/mon-depute/donnees/abonnes.sqlite`,
-qui contient des adresses e-mail : la sauvegarde doit être protégée comme
-l'original. Tout le reste se reconstruit à partir des données de l'Assemblée.
+qui contient des adresses e-mail. Tout le reste se reconstruit à partir des
+données de l'Assemblée.
+
+La tâche quotidienne en écrit une copie datée et compressée dans
+`/srv/mon-depute/donnees/sauvegardes`, et garde les 14 dernières. Cette copie
+protège d'une erreur de manipulation ou d'une base abîmée, **pas de la perte
+du serveur** : pour cela, il faut en plus envoyer ces fichiers ailleurs (un
+espace de stockage objet, par exemple), ce qui n'est pas encore en place.
+
+Pour restaurer une copie, service arrêté :
+
+```bash
+systemctl stop mon-depute-lettre.service
+gunzip -c /srv/mon-depute/donnees/sauvegardes/abonnes-AAAAMMJJ-HHMMSS.sqlite.gz > /srv/mon-depute/donnees/abonnes.sqlite
+chown mondepute /srv/mon-depute/donnees/abonnes.sqlite
+systemctl start mon-depute-lettre.service
+```
 
 Une fois le serveur en service, la publication sur GitHub Pages devient
 inutile : désactiver la tâche planifiée du dépôt, ou la garder comme miroir

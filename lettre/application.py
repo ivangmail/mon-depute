@@ -11,7 +11,7 @@ import time
 from html import escape
 from urllib.parse import parse_qs
 
-from . import abonnes, courriel
+from . import abonnes, courriel, envoi
 from collecte.portrait import ordinal
 
 TAILLE_MAX = 4096
@@ -154,15 +154,44 @@ class Application:
         identifiant = abonnes.verifier(self.config.secret, jeton, "confirmer")
         db = self._abonnes()
         try:
-            if identifiant is None or abonnes.lire(db, identifiant) is None:
+            avant = abonnes.lire(db, identifiant) if identifiant is not None else None
+            if avant is None:
                 return self._invalide()
             abonne = abonnes.confirmer(db, identifiant)
+            # La première lettre part à la confirmation, une seule fois : rouvrir
+            # le lien ne renvoie rien.
+            premiere = self._premiere_lettre(db, abonne) if avant["statut"] == "attente" else None
         finally:
             db.close()
+        suite = {
+            "envoyee": "Votre première lettre vient de partir : regardez votre boîte de réception.",
+            "vide": "Aucune activité n'a été enregistrée pour votre député ces derniers jours : "
+                    "votre première lettre partira dès qu'il y en aura.",
+            "vacant": "Le siège de votre circonscription est actuellement vacant : vous "
+                      "recevrez une lettre quand un député y siégera.",
+        }.get(premiere, "")
         return self._page("Abonnement confirmé", (
             f"<p>Vous recevrez {LIBELLES[abonne['frequence']]} l'activité de votre député, "
             "quand il y en a. Chaque lettre contient un lien pour changer la fréquence ou "
-            "vous désabonner.</p>"))
+            "vous désabonner.</p>" + (f"<p>{escape(suite)}</p>" if suite else "")))
+
+    def _premiere_lettre(self, db, abonne):
+        """Envoie la première lettre. Une panne ici ne doit pas faire échouer la
+        confirmation : la lettre partira alors avec l'envoi quotidien."""
+        donnees = None
+        try:
+            donnees = sqlite3.connect(f"file:{self.config.donnees}?mode=ro", uri=True)
+            donnees.row_factory = sqlite3.Row
+            debut, fin = abonnes.premiere_periode(abonne["frequence"])
+            return envoi.envoyer_lettre(self.config, self.liens(abonne["id"]), donnees, db,
+                                        abonne, debut, fin)[0]
+        except Exception as erreur:
+            print(f"Première lettre non envoyée : {type(erreur).__name__} : {erreur}",
+                  file=sys.stderr, flush=True)
+            return None
+        finally:
+            if donnees is not None:
+                donnees.close()
 
     def gerer(self, jeton, champs=None):
         identifiant = abonnes.verifier(self.config.secret, jeton, "gerer")

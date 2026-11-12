@@ -134,6 +134,8 @@ sans dépendance. Un visiteur s'abonne depuis la fiche d'un député, confirme
 par e-mail, puis reçoit chaque semaine ou chaque mois l'activité du député de
 sa circonscription. Aucune lettre ne part quand il n'y a rien à dire.
 
+- **Première lettre :** elle part dès la confirmation de l'abonnement, s'il y a
+  eu de l'activité ; les suivantes partent avec la mise à jour quotidienne.
 - **Période couverte :** une lettre s'arrête deux jours avant son envoi, pour
   laisser à l'Assemblée le temps de publier ses données.
 - **Données conservées :** l'adresse e-mail, la circonscription et la

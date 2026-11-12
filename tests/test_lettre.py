@@ -200,6 +200,67 @@ class Lettre(unittest.TestCase):
         self.assertEqual(len(self.courriels()), 1)                # un seul e-mail est parti
         self.assertEqual([l["email"] for l in self.lignes()], ["ada@exemple.fr"])
 
+    def test_premiere_lettre_a_la_confirmation(self):
+        from unittest import mock
+        # Confirmation le 17/07/2025 : la première lettre couvre du 08/07 au 14/07.
+        jour_j = datetime.datetime(2025, 7, 17, 8, 0, tzinfo=datetime.timezone.utc)
+        self.demande()
+        lien = [m for m in self.courriels()[0].get_content().split()
+                if "/api/confirmer?jeton=" in m][0].split("?")[1]
+        with mock.patch("lettre.abonnes.maintenant", return_value=jour_j):
+            _, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
+            self.assertIn("première lettre vient de partir", page)
+            messages = self.courriels()
+            self.assertEqual(len(messages), 2)
+            self.assertIn("du 08/07/2025 au 14/07/2025", messages[1]["Subject"])
+            self.assertEqual(self.lignes()[0]["dernier_envoi"], "2025-07-15")
+            # Rouvrir le lien ne renvoie pas la lettre, et l'envoi quotidien non plus.
+            _, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
+            self.assertNotIn("vient de partir", page)
+            self.assertEqual(envoyer(self.config, instant=jour_j, journal=lambda m: None)[0], 0)
+            self.assertEqual(len(self.courriels()), 2)
+
+    def test_confirmation_sans_activite_ou_envoi_en_panne(self):
+        from unittest import mock
+        self.demande()
+        lien = [m for m in self.courriels()[0].get_content().split()
+                if "/api/confirmer?jeton=" in m][0].split("?")[1]
+        # Aujourd'hui, le jeu d'essai (2025) n'a aucune activité récente.
+        statut, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
+        self.assertEqual(statut, "200 OK")
+        self.assertIn("votre première lettre partira", page)
+        self.assertIsNone(self.lignes()[0]["dernier_envoi"])
+        # Une panne d'envoi ne fait pas échouer la confirmation.
+        self.demande(email="autre@exemple.fr")
+        lien = [m for m in self.courriels()[-1].get_content().split()
+                if "/api/confirmer?jeton=" in m][0].split("?")[1]
+        jour_j = datetime.datetime(2025, 7, 17, 8, 0, tzinfo=datetime.timezone.utc)
+        with mock.patch("lettre.abonnes.maintenant", return_value=jour_j), \
+                mock.patch("lettre.courriel.envoyer", side_effect=OSError("refusé")), \
+                mock.patch("sys.stderr"):
+            statut, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
+        self.assertEqual(statut, "200 OK")
+        self.assertIn("Abonnement confirmé", page)
+        autre = [l for l in self.lignes() if l["email"] == "autre@exemple.fr"][0]
+        self.assertEqual((autre["statut"], autre["dernier_envoi"]), ("actif", None))
+
+    def test_sauvegarde(self):
+        import gzip
+        import sqlite3
+        self.demande()
+        dossier = os.path.join(self.tmp.name, "sauvegardes")
+        chemins = [abonnes.sauvegarder(self.config.abonnes, dossier, conserver=2,
+                                       instant=T0 + datetime.timedelta(days=n)) for n in range(4)]
+        self.assertEqual(sorted(os.listdir(dossier)),
+                         ["abonnes-20260107-090000.sqlite.gz", "abonnes-20260108-090000.sqlite.gz"])
+        copie = os.path.join(self.tmp.name, "restaure.sqlite")
+        with gzip.open(chemins[-1], "rb") as source, open(copie, "wb") as cible:
+            cible.write(source.read())
+        db = sqlite3.connect(copie)
+        self.assertEqual(db.execute("SELECT email FROM abonnes").fetchall(), [("ada@exemple.fr",)])
+        db.close()
+        self.assertEqual(os.stat(chemins[-1]).st_mode & 0o777, 0o600)
+
     def test_envoi_en_panne(self):
         from unittest import mock
         with mock.patch("lettre.courriel.envoyer", side_effect=OSError("refusé")), \

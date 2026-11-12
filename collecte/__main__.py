@@ -84,7 +84,9 @@ def publier(db, args):
     print(f"[indicateurs] terminé en {time.time() - debut:.0f} s")
     debut = time.time()
     site.generer(db, args.site, journal=lambda m: print(f"[site] {m}"),
-                 api_url=args.api or os.environ.get("MD_API_URL"))
+                 api_url=args.api or os.environ.get("MD_API_URL"),
+                 editeur=os.environ.get("MD_EDITEUR"), contact=os.environ.get("MD_CONTACT"),
+                 hebergeur=os.environ.get("MD_HEBERGEUR"))
     print(f"[site] terminé en {time.time() - debut:.0f} s")
 
 
