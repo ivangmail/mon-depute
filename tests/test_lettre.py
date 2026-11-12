@@ -252,6 +252,48 @@ class Lettre(unittest.TestCase):
         self.assertIn("<a href=\"https://a/d\">Vous désabonner</a>", html)
         db.close()
 
+    def test_contenu_detaille(self):
+        import sqlite3
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        # Un vote ordinaire, des amendements sur deux textes, une réunion de commission.
+        db.execute("UPDATE votes SET position = 'pour' WHERE scrutin_uid = 'S3'"
+                   " AND acteur_uid = 'PA1'")
+        db.executemany("INSERT INTO documents (uid, type, titre) VALUES (?, 'PRJL', ?)",
+                       [("T1", "projet de loi de finances"), ("T2", "projet de loi santé")])
+        db.executemany(
+            "INSERT INTO amendements (uid, texte_uid, acteur_uid, type_auteur, date_depot, sort)"
+            " VALUES (?,?, 'PA1', 'Député', '2025-07-09', ?)",
+            [("A1", "T1", "Adopté"), ("A2", "T1", None), ("A3", "T2", None), ("A4", "TX", None)])
+        db.execute("INSERT INTO reunions VALUES ('R1', 'commission', '2025-07-09T09:00:00',"
+                   " NULL, 'C1', 'Confirmé', '- audition de la ministre ; ; - examen du texte',"
+                   " NULL)")
+        db.execute("INSERT INTO presences VALUES ('R1', 'PA1', 'présent')")
+        db.execute("INSERT INTO reunions_comptees VALUES ('R1')")
+        lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
+        _, texte, _ = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
+        db.close()
+        self.assertIn("SES AUTRES VOTES\nUn vote sur un amendement ou un article :\n"
+                      "- 11/07/2025 · Pour · L'amdt 1 (rejeté)\n"
+                      "  https://www.assemblee-nationale.fr/dyn/17/scrutins/3", texte)
+        self.assertIn("4 amendements déposés comme premier signataire, dont 1 déjà adopté.\n"
+                      "- Projet de loi de finances : 2 amendements\n"
+                      "- Projet de loi santé : 1 amendement\n"
+                      "- Texte non identifié : 1 amendement", texte)
+        self.assertIn("Présente à la seule réunion de commission dotée d'une feuille de présence."
+                      "\n- 09/07/2025 · Commission des lois · audition de la ministre ; examen"
+                      " du texte", texte)
+
+    def test_objet_de_reunion_raccourci(self):
+        self.assertEqual(contenu.raccourcir("-Nomination de rapporteurs sur : -la proposition"),
+                         "Nomination de rapporteurs sur : la proposition")
+        long = contenu.raccourcir("mot " * 100)
+        self.assertLessEqual(len(long), contenu.LONGUEUR_OBJET + 1)
+        self.assertTrue(long.endswith("mot…"))
+        self.assertEqual(contenu.raccourcir(None), "")
+        self.assertEqual(contenu.intitule("le texte B (première lecture)."),
+                         "Le texte B (première lecture)")
+
 
 class Configuration(unittest.TestCase):
     ENV = {"MD_SECRET": "x" * 40, "MD_SITE_URL": "https://s.fr/", "MD_API_URL": "https://a.fr/",

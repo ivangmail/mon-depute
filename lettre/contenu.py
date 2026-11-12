@@ -5,6 +5,7 @@ que le site (voir collecte/indicateurs.py et la page Méthodologie).
 """
 
 import datetime
+import re
 from html import escape
 
 from collecte import fiche, indicateurs, site
@@ -12,6 +13,25 @@ from collecte.portrait import jour, ordinal
 from collecte.sources import LEGISLATURE
 
 LIMITE = 5  # éléments listés par rubrique
+LONGUEUR_OBJET = 160  # caractères conservés de l'objet d'une réunion
+
+
+PUCES = re.compile(r"([:;])(?:\s*[;-])+\s*")
+
+
+def intitule(titre):
+    """Intitulé d'un scrutin : majuscule initiale, sans le point final."""
+    return fiche.majuscule(titre or "").rstrip(". ")
+
+
+def raccourcir(texte, longueur=LONGUEUR_OBJET):
+    """Nettoie l'objet d'une réunion et le coupe à la fin d'un mot."""
+    texte = " ".join((texte or "").replace("\u2013", "-").split())
+    # Les ordres du jour arrivent en listes à puces mises bout à bout.
+    texte = PUCES.sub(lambda m: m.group(1) + " ", texte).lstrip("-; ").strip()
+    if len(texte) <= longueur:
+        return texte
+    return texte[:longueur].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
 
 
 def _pluriel(n, singulier, pluriel=None):
@@ -45,6 +65,13 @@ def composer(db, departement, circo, debut, fin):
         LEFT JOIN votes v ON v.scrutin_uid = s.uid AND v.acteur_uid = :uid
         WHERE s.type_vote = :type AND s.date >= :debut AND s.date < :fin
         ORDER BY s.date, s.numero""", {**bornes, "type": indicateurs.SOLENNEL}).fetchall()
+    autres_votes = db.execute(f"""
+        SELECT s.numero, s.date, s.titre, s.sort, v.position FROM votes v
+        JOIN scrutins s ON s.uid = v.scrutin_uid
+        WHERE v.acteur_uid = :uid AND v.position IN {indicateurs.EXPRIMES}
+          AND s.type_vote <> :type AND s.date >= :debut AND s.date < :fin
+        ORDER BY s.date DESC, s.numero DESC""",
+                              {**bornes, "type": indicateurs.SOLENNEL}).fetchall()
     dissidents = db.execute(f"""
         SELECT s.numero, s.date, s.titre, v.position, l.position AS ligne
         FROM votes v JOIN lignes_groupe l
@@ -72,6 +99,20 @@ def composer(db, departement, circo, debut, fin):
         SELECT count(*), sum(sort = 'Adopté') FROM amendements
         WHERE acteur_uid = :uid AND type_auteur = 'Député'
           AND date_depot >= :debut AND date_depot < :fin""", bornes).fetchone()
+    amendements_par_texte = db.execute("""
+        SELECT coalesce(doc.titre, 'Texte non identifié') AS titre, count(*) AS n
+        FROM amendements a LEFT JOIN documents doc ON doc.uid = a.texte_uid
+        WHERE a.acteur_uid = :uid AND a.type_auteur = 'Député'
+          AND a.date_depot >= :debut AND a.date_depot < :fin
+        GROUP BY titre ORDER BY n DESC, titre COLLATE NOCASE""", bornes).fetchall()
+    reunions = db.execute("""
+        SELECT substr(r.debut, 1, 10) AS date, o.libelle AS organe, r.objet FROM presences p
+        JOIN reunions_comptees rc ON rc.uid = p.reunion_uid
+        JOIN reunions r ON r.uid = p.reunion_uid
+        LEFT JOIN organes o ON o.uid = r.organe_uid
+        WHERE p.acteur_uid = :uid AND p.presence = 'présent'
+          AND substr(r.debut, 1, 10) >= :debut AND substr(r.debut, 1, 10) < :fin
+        ORDER BY r.debut DESC""", bornes).fetchall()
     propositions = db.execute("""
         SELECT doc.titre, doc.date_depot FROM documents_signataires s
         JOIN documents doc ON doc.uid = s.document_uid
@@ -95,10 +136,13 @@ def composer(db, departement, circo, debut, fin):
         "debut": debut, "fin": fin,
         "scrutins": scrutins, "exprimes": exprimes,
         "solennels": [dict(s) for s in solennels],
+        "autres_votes": [dict(v) for v in autres_votes],
         "dissidents": [dict(v) for v in dissidents],
         "questions": [dict(q) for q in questions], "reponses": reponses,
         "interventions": interventions, "sujets": [(s["sujet"], s["n"]) for s in sujets],
         "amendements": amendements[0] or 0, "amendements_adoptes": amendements[1] or 0,
+        "amendements_par_texte": [(a["titre"], a["n"]) for a in amendements_par_texte],
+        "reunions": [dict(r) for r in reunions],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
     }
@@ -127,11 +171,23 @@ def rubriques(l):
         phrases.append("Aucun scrutin public ne s'est tenu pendant la période.")
     for s in l["solennels"]:
         elements.append((f"{jour(s['date'])} · {fiche.LIBELLES_POSITION[s['position']]} · "
-                         f"{fiche.majuscule(s['titre'])} ({s['sort']})",
+                         f"{intitule(s['titre'])} ({s['sort']})",
                          fiche.URL_SCRUTIN.format(s["numero"])))
     if l["solennels"]:
         phrases.append("Ses votes sur les textes entiers (scrutins solennels) :")
     sorties.append(("Votes", phrases, elements))
+
+    autres = l.get("autres_votes") or []
+    if autres:
+        n = len(autres)
+        sorties.append((
+            "Ses autres votes",
+            [f"Les {LIMITE} plus récents, sur {n} :" if n > LIMITE else
+             ("Un vote sur un amendement ou un article :" if n == 1 else
+              f"{n} votes sur des amendements ou des articles :")],
+            [(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} · "
+              f"{intitule(v['titre'])} ({v['sort']})",
+              fiche.URL_SCRUTIN.format(v["numero"])) for v in autres[:LIMITE]]))
 
     if l["dissidents"]:
         n = len(l["dissidents"])
@@ -140,7 +196,7 @@ def rubriques(l):
             [f"{_pluriel(n, 'vote différent', 'votes différents')} de la position majoritaire "
              f"du groupe {l['sigle']}" + (f", dont les {LIMITE} premiers :" if n > LIMITE else " :")],
             [(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} (groupe : "
-              f"{fiche.LIBELLES_POSITION[v['ligne']].lower()}) · {fiche.majuscule(v['titre'])}",
+              f"{fiche.LIBELLES_POSITION[v['ligne']].lower()}) · {intitule(v['titre'])}",
               fiche.URL_SCRUTIN.format(v["numero"])) for v in l["dissidents"][:LIMITE]]))
 
     if l["interventions"]:
@@ -150,10 +206,21 @@ def rubriques(l):
             [(f"{sujet or 'Sujet non précisé'} ({n})", None) for sujet, n in l["sujets"][:LIMITE]]))
 
     if l["commission_reunions"]:
-        sorties.append(("En commission", [
-            f"Présent{'e' if l['feminin'] else ''} à {l['commission_present']} des "
-            f"{_pluriel(l['commission_reunions'], 'réunion')} de commission dotées d'une "
-            "feuille de présence."], []))
+        elements = []
+        for r in (l.get("reunions") or [])[:LIMITE]:
+            morceaux = [jour(r["date"]), r["organe"], raccourcir(r["objet"])]
+            elements.append((" · ".join(m for m in morceaux if m), None))
+        e = "e" if l["feminin"] else ""
+        if l["commission_reunions"] == 1:
+            phrases = [(f"Présent{e} à" if l["commission_present"] else f"Absent{e} de")
+                       + " la seule réunion de commission dotée d'une feuille de présence."]
+        else:
+            phrases = [f"Présent{e} à {l['commission_present']} des "
+                       f"{l['commission_reunions']} réunions de commission dotées "
+                       "d'une feuille de présence."]
+        if len(l.get("reunions") or []) > LIMITE:
+            phrases.append(f"Les {LIMITE} plus récentes :")
+        sorties.append(("En commission", phrases, elements))
 
     phrases, elements = [], []
     if l["amendements"]:
@@ -162,6 +229,12 @@ def rubriques(l):
                        + (f", dont {l['amendements_adoptes']} déjà adopté"
                           f"{'s' if l['amendements_adoptes'] > 1 else ''}"
                           if l["amendements_adoptes"] else "") + ".")
+    par_texte = l.get("amendements_par_texte") or []
+    for titre, n in par_texte[:LIMITE]:
+        elements.append((f"{fiche.majuscule(titre)} : {_pluriel(n, 'amendement')}", None))
+    if len(par_texte) > LIMITE:
+        reste = sum(n for _, n in par_texte[LIMITE:])
+        elements.append((f"Autres textes : {_pluriel(reste, 'amendement')}", None))
     for p in l["propositions"][:LIMITE]:
         elements.append((f"Proposition de loi déposée le {jour(p['date_depot'])} : "
                          f"{fiche.majuscule(p['titre'])}", None))
