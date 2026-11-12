@@ -4,9 +4,9 @@ Ces fichiers décrivent l'installation sur un serveur Debian ou Ubuntu : le
 site statique, le service de la lettre et la mise à jour quotidienne sur une
 même machine, derrière Caddy.
 
-**Ils n'ont pas encore été essayés sur un vrai serveur.** Seul le service
-lui-même a été testé, en local, avec gunicorn. À relire et adapter lors de la
-première installation.
+**Première installation en cours** sur une Instance Scaleway (Debian 13) : ce
+guide est corrigé au fil de cette installation et n'a pas encore été déroulé
+jusqu'au bout.
 
 ## Ce qu'il faut avoir
 
@@ -20,30 +20,39 @@ première installation.
 
 ## Étapes
 
+Les commandes sont à lancer en tant que `root`.
+
 ```bash
-sudo apt install python3 gunicorn caddy git
-sudo useradd --system --home /srv/mon-depute --create-home mondepute
-sudo -u mondepute git clone https://github.com/ivangmail/mon-depute /srv/mon-depute/code
-sudo -u mondepute mkdir /srv/mon-depute/donnees /srv/mon-depute/site
+apt install -y python3 gunicorn caddy git
+useradd --system --home /srv/mon-depute --create-home --shell /usr/sbin/nologin mondepute
+runuser -u mondepute -- git clone https://github.com/ivangmail/mon-depute /srv/mon-depute/code
+runuser -u mondepute -- mkdir /srv/mon-depute/donnees /srv/mon-depute/site
+```
+
+Le serveur web doit pouvoir lire le site, mais pas la base des abonnés :
+
+```bash
+chmod 755 /srv/mon-depute
+chmod 700 /srv/mon-depute/donnees
 ```
 
 Configuration, à remplir (secret, domaine, identifiants SMTP) :
 
 ```bash
-sudo install -m 600 -o mondepute /srv/mon-depute/code/deploiement/mon-depute.env.exemple /etc/mon-depute.env
-sudo nano /etc/mon-depute.env
+install -m 600 -o mondepute /srv/mon-depute/code/deploiement/mon-depute.env.exemple /etc/mon-depute.env
+nano /etc/mon-depute.env
 ```
 
 Services, depuis `/srv/mon-depute/code`, après avoir mis le nom de domaine
 dans `deploiement/Caddyfile` :
 
 ```bash
-sudo cp deploiement/mon-depute-*.service deploiement/mon-depute-quotidien.timer /etc/systemd/system/
-sudo cp deploiement/Caddyfile /etc/caddy/Caddyfile
-sudo systemctl daemon-reload
-sudo systemctl start mon-depute-quotidien.service
-sudo systemctl enable --now mon-depute-lettre.service mon-depute-quotidien.timer
-sudo systemctl reload caddy
+cp deploiement/mon-depute-*.service deploiement/mon-depute-quotidien.timer /etc/systemd/system/
+cp deploiement/Caddyfile /etc/caddy/Caddyfile
+systemctl daemon-reload
+systemctl start mon-depute-quotidien.service
+systemctl enable --now mon-depute-lettre.service mon-depute-quotidien.timer
+systemctl reload caddy
 ```
 
 La première collecte prend quelques minutes.
@@ -54,12 +63,12 @@ La première collecte prend quelques minutes.
   formulaire « Suivre son activité par e-mail » ;
 - `https://<domaine>/api/sante` répond `{"etat": "ok"}` ;
 - s'abonner avec sa propre adresse, confirmer, relancer
-  `sudo systemctl start mon-depute-quotidien.service` et vérifier la réception.
+  `systemctl start mon-depute-quotidien.service` et vérifier la réception.
 
 Pour voir ce qui partirait sans rien envoyer :
 
 ```bash
-sudo -u mondepute bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre envoyer --a-blanc'
+runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre envoyer --a-blanc'
 ```
 
 ## Sauvegarde
