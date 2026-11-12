@@ -16,6 +16,9 @@ DELAI_CONFIRMATION = 7       # jours avant suppression d'une inscription non con
 DELAI_ENTRE_COURRIELS = 3600  # secondes entre deux e-mails de confirmation à la même adresse
 MAX_PAR_ADRESSE = 5           # circonscriptions suivies par une même adresse
 PERIODE_MAX = 60              # jours couverts au plus par une lettre
+# L'Assemblée publie ses données avec retard : une lettre s'arrête deux jours
+# avant son envoi, pour qu'un vote publié tardivement ne soit pas oublié.
+DECALAGE = 2
 COURRIEL = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[^@\s<>\"',;]{2,}$")
 
 SCHEMA = """
@@ -162,10 +165,11 @@ def dus(db, instant=None):
     """Abonnés actifs dont la période est écoulée, avec les bornes de leur lettre.
 
     Renvoie une liste de (abonné, début, fin) ; les dates sont au format
-    AAAA-MM-JJ, début inclus et fin exclue.
+    AAAA-MM-JJ, début inclus et fin exclue. La fin est antérieure de DECALAGE
+    jours à la date d'envoi.
     """
     instant = instant or maintenant()
-    fin = instant.date()
+    fin = instant.date() - datetime.timedelta(days=DECALAGE)
     resultat = []
     for a in db.execute("SELECT * FROM abonnes WHERE statut = 'actif' ORDER BY id"):
         jours = FREQUENCES[a["frequence"]]

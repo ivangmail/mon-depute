@@ -12,6 +12,7 @@ from collecte import fiche, indicateurs, site
 from collecte.portrait import jour, ordinal
 from collecte.sources import LEGISLATURE
 
+URL_DOSSIER = "https://www.assemblee-nationale.fr/dyn/" + LEGISLATURE + "/dossiers/{}"
 LIMITE = 5  # éléments listés par rubrique
 LONGUEUR_OBJET = 160  # caractères conservés de l'objet d'une réunion
 
@@ -22,6 +23,29 @@ PUCES = re.compile(r"([:;])(?:\s*[;-])+\s*")
 def intitule(titre):
     """Intitulé d'un scrutin : majuscule initiale, sans le point final."""
     return fiche.majuscule(titre or "").rstrip(". ")
+
+
+def votes_par_texte(votes):
+    """Regroupe des votes par dossier législatif, du plus voté au moins voté.
+
+    Chaque groupe donne le titre du texte, le nombre de votes, leur répartition
+    (« 1 pour, 4 contre ») et le lien vers le dossier sur le site de l'Assemblée.
+    """
+    groupes = {}
+    for v in votes:
+        cle = v.get("dossier_uid") or ""
+        g = groupes.setdefault(cle, {
+            "texte": fiche.majuscule(v.get("texte") or "") or "Textes non identifiés",
+            "lien": URL_DOSSIER.format(cle) if cle else None,
+            "total": 0, "pour": 0, "contre": 0, "abstention": 0})
+        g["total"] += 1
+        g[v["position"]] += 1
+    for g in groupes.values():
+        g["detail"] = ", ".join(
+            f"{g[p]} {libelle if g[p] < 2 else pluriel}"
+            for p, libelle, pluriel in (("pour", "pour", "pour"), ("contre", "contre", "contre"),
+                                        ("abstention", "abstention", "abstentions")) if g[p])
+    return sorted(groupes.values(), key=lambda g: (-g["total"], g["texte"]))
 
 
 def raccourcir(texte, longueur=LONGUEUR_OBJET):
@@ -66,8 +90,10 @@ def composer(db, departement, circo, debut, fin):
         WHERE s.type_vote = :type AND s.date >= :debut AND s.date < :fin
         ORDER BY s.date, s.numero""", {**bornes, "type": indicateurs.SOLENNEL}).fetchall()
     autres_votes = db.execute(f"""
-        SELECT s.numero, s.date, s.titre, s.sort, v.position FROM votes v
-        JOIN scrutins s ON s.uid = v.scrutin_uid
+        SELECT s.numero, s.date, s.titre, s.sort, v.position, s.dossier_uid,
+               d.titre AS texte
+        FROM votes v JOIN scrutins s ON s.uid = v.scrutin_uid
+        LEFT JOIN dossiers d ON d.uid = s.dossier_uid
         WHERE v.acteur_uid = :uid AND v.position IN {indicateurs.EXPRIMES}
           AND s.type_vote <> :type AND s.date >= :debut AND s.date < :fin
         ORDER BY s.date DESC, s.numero DESC""",
@@ -180,14 +206,17 @@ def rubriques(l):
     autres = l.get("autres_votes") or []
     if autres:
         n = len(autres)
+        groupes = votes_par_texte(autres)
+        elements = [(f"{g['texte']} : {_pluriel(g['total'], 'vote')} ({g['detail']})", g["lien"])
+                    for g in groupes[:LIMITE]]
+        if len(groupes) > LIMITE:
+            reste = sum(g["total"] for g in groupes[LIMITE:])
+            elements.append((f"Autres textes : {_pluriel(reste, 'vote')}", None))
         sorties.append((
-            "Ses autres votes",
-            [f"Les {LIMITE} plus récents, sur {n} :" if n > LIMITE else
-             ("Un vote sur un amendement ou un article :" if n == 1 else
-              f"{n} votes sur des amendements ou des articles :")],
-            [(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} · "
-              f"{intitule(v['titre'])} ({v['sort']})",
-              fiche.URL_SCRUTIN.format(v["numero"])) for v in autres[:LIMITE]]))
+            "Ses votes sur des amendements et des articles",
+            [f"{_pluriel(n, 'vote')}, " + ("sur un seul texte :" if len(groupes) == 1 else
+                                          f"répartis sur {len(groupes)} textes :")],
+            elements))
 
     if l["dissidents"]:
         n = len(l["dissidents"])

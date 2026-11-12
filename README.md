@@ -135,6 +135,8 @@ sans dépendance. Un visiteur s'abonne depuis la fiche d'un député, confirme
 par e-mail, puis reçoit chaque semaine ou chaque mois l'activité du député de
 sa circonscription. Aucune lettre ne part quand il n'y a rien à dire.
 
+- **Période couverte :** une lettre s'arrête deux jours avant son envoi, pour
+  laisser à l'Assemblée le temps de publier ses données.
 - **Données conservées :** l'adresse e-mail, la circonscription et la
   fréquence, dans une base séparée (`abonnes.sqlite`). Ni nom, ni adresse
   postale, ni adresse IP. Le désabonnement efface la ligne.

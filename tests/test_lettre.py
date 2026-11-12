@@ -81,16 +81,17 @@ class Abonnes(unittest.TestCase):
             abonnes.confirmer(self.db, a["id"], T0)
             if dernier:
                 abonnes.marquer_envoye(self.db, a["id"], dernier)
+        # Envoi le 05/01/2026 : la période s'arrête deux jours plus tôt, au 03/01 exclu.
         actif("nouveau@exemple.fr", "hebdomadaire")               # première lettre
-        actif("hebdo-tot@exemple.fr", "hebdomadaire", "2026-01-01")   # il y a 4 jours
-        actif("hebdo-du@exemple.fr", "hebdomadaire", "2025-12-29")    # il y a 7 jours
-        actif("mensuel@exemple.fr", "mensuelle", "2025-12-20")        # il y a 16 jours
+        actif("hebdo-tot@exemple.fr", "hebdomadaire", "2025-12-30")   # 4 jours couverts
+        actif("hebdo-du@exemple.fr", "hebdomadaire", "2025-12-27")    # 7 jours couverts
+        actif("mensuel@exemple.fr", "mensuelle", "2025-12-20")        # 14 jours couverts
         actif("ancien@exemple.fr", "mensuelle", "2025-01-01")         # très ancien : plafonné
         abonnes.inscrire(self.db, "attente@exemple.fr", "10", "2", "hebdomadaire", T0)
         dus = {a["email"]: (debut, fin) for a, debut, fin in abonnes.dus(self.db, T0)}
-        self.assertEqual(dus, {"nouveau@exemple.fr": ("2025-12-29", "2026-01-05"),
-                               "hebdo-du@exemple.fr": ("2025-12-29", "2026-01-05"),
-                               "ancien@exemple.fr": ("2025-11-06", "2026-01-05")})
+        self.assertEqual(dus, {"nouveau@exemple.fr": ("2025-12-27", "2026-01-03"),
+                               "hebdo-du@exemple.fr": ("2025-12-27", "2026-01-03"),
+                               "ancien@exemple.fr": ("2025-11-04", "2026-01-03")})
 
 
 class Lettre(unittest.TestCase):
@@ -213,8 +214,8 @@ class Lettre(unittest.TestCase):
             abonnes.confirmer(db, a["id"], T0)
         db.close()
         journal = []
-        # Semaine du 08/07 au 14/07/2025 : les scrutins S2, S3 et S4 du jeu d'essai.
-        instant = datetime.datetime(2025, 7, 15, 8, 0, tzinfo=datetime.timezone.utc)
+        # Envoi le 17/07/2025, donc semaine du 08/07 au 14/07 : scrutins S2, S3 et S4.
+        instant = datetime.datetime(2025, 7, 17, 8, 0, tzinfo=datetime.timezone.utc)
         self.assertEqual(envoyer(self.config, instant=instant, journal=journal.append),
                          (1, 0, 1, 0))
         message = self.courriels()[0]
@@ -273,9 +274,9 @@ class Lettre(unittest.TestCase):
         lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
         _, texte, _ = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
         db.close()
-        self.assertIn("SES AUTRES VOTES\nUn vote sur un amendement ou un article :\n"
-                      "- 11/07/2025 · Pour · L'amdt 1 (rejeté)\n"
-                      "  https://www.assemblee-nationale.fr/dyn/17/scrutins/3", texte)
+        self.assertIn("SES VOTES SUR DES AMENDEMENTS ET DES ARTICLES\n"
+                      "1 vote, sur un seul texte :\n"
+                      "- Textes non identifiés : 1 vote (1 pour)", texte)
         self.assertIn("4 amendements déposés comme premier signataire, dont 1 déjà adopté.\n"
                       "- Projet de loi de finances : 2 amendements\n"
                       "- Projet de loi santé : 1 amendement\n"
@@ -283,6 +284,20 @@ class Lettre(unittest.TestCase):
         self.assertIn("Présente à la seule réunion de commission dotée d'une feuille de présence."
                       "\n- 09/07/2025 · Commission des lois · audition de la ministre ; examen"
                       " du texte", texte)
+
+    def test_votes_regroupes_par_texte(self):
+        votes = ([{"dossier_uid": "D1", "texte": "projet de loi de finances", "position": p}
+                  for p in ("pour", "contre", "contre", "abstention", "abstention")]
+                 + [{"dossier_uid": "D2", "texte": "Proposition de loi santé", "position": "pour"},
+                    {"dossier_uid": None, "texte": None, "position": "contre"}])
+        groupes = contenu.votes_par_texte(votes)
+        self.assertEqual([(g["texte"], g["total"], g["detail"]) for g in groupes], [
+            ("Projet de loi de finances", 5, "1 pour, 2 contre, 2 abstentions"),
+            ("Proposition de loi santé", 1, "1 pour"),
+            ("Textes non identifiés", 1, "1 contre")])
+        self.assertEqual(groupes[0]["lien"],
+                         "https://www.assemblee-nationale.fr/dyn/17/dossiers/D1")
+        self.assertIsNone(groupes[2]["lien"])
 
     def test_objet_de_reunion_raccourci(self):
         self.assertEqual(contenu.raccourcir("-Nomination de rapporteurs sur : -la proposition"),
