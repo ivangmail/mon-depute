@@ -87,8 +87,15 @@ border-bottom:1px solid var(--trait);background:none;color:var(--texte);cursor:p
 .bloc button[type=submit],main form button{font:inherit;padding:10px 16px;border-radius:8px;
 border:0;background:var(--accent);color:var(--fond);cursor:pointer;font-weight:600}
 .piege{position:absolute;left:-9999px}
-a.bouton{display:inline-block;padding:10px 16px;border-radius:8px;background:var(--accent);
-color:var(--fond);font-weight:600;text-decoration:none}
+.bloc textarea{width:100%;font:inherit;padding:10px 12px;border-radius:8px;resize:vertical;
+border:1px solid var(--trait);background:var(--fond);color:var(--texte);line-height:1.45}
+.bloc input[type=text]+label,.bloc label[for=courrier-texte]{margin-top:12px}
+.envois{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
+.envois span{color:var(--doux);font-size:.9rem;margin-right:4px}
+.bouton{display:inline-block;font:inherit;font-weight:600;font-size:.92rem;padding:8px 14px;
+border-radius:8px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);
+text-decoration:none;cursor:pointer}
+.bouton:hover,.bouton:focus-visible{background:var(--accent);color:var(--fond)}
 a.interroger{display:table;margin:.4em 0 0;padding:1px 10px;border:1px solid var(--trait);
 border-radius:99px;font-size:.8rem;text-decoration:none;white-space:nowrap}
 a.interroger:hover,a.interroger:focus-visible{border-color:var(--accent)}
@@ -458,9 +465,10 @@ def confidentialite(api_url, editeur=None, contact=None):
  Ce site ne reçoit ni votre adresse ni vos coordonnées, et ne conserve rien.</p>
 {lettre}
 <h2>Écrire à un député</h2>
-<p>Les boutons « Écrire à… » et « L’interroger sur ce vote » ouvrent votre propre messagerie avec un
- message à compléter. Ce message part de votre adresse, directement vers celle du député : ce site
- ne le voit pas, ne le transmet pas et n’en garde aucune trace.</p>
+<p>Le bloc « Lui écrire » et les liens « L’interroger sur ce vote » préparent un message dans votre
+ navigateur. Vous l’envoyez ensuite avec votre propre messagerie (Gmail, Outlook.com, Yahoo Mail,
+ le logiciel de votre appareil) ou en le copiant. Il part de votre adresse, directement vers celle
+ du député : ce site ne le voit pas, ne le transmet pas et n’en garde aucune trace.</p>
 
 <h2>Les données sur les députés</h2>
 <p>Les informations affichées sur les députés (état civil, mandats, votes, contacts publics)
@@ -486,7 +494,7 @@ def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None
 
     ecrire("style.css", STYLE)
     ecrire("recherche.js", RECHERCHE_JS)
-    for script in ("adresse.js", "abonnement.js"):
+    for script in ("adresse.js", "abonnement.js", "ecrire.js"):
         with open(os.path.join(ICI, script), encoding="utf-8") as f:
             ecrire(script, f.read())
     ecrire("confidentialite.html", page(

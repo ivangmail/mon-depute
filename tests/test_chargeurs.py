@@ -446,10 +446,26 @@ class EcrireAuDepute(unittest.TestCase):
             _, _, ancien = fiche.corps(db, "PA2")
             _, _, sans_adresse = fiche.corps(db, "PA3")
             db.close()
-        self.assertIn('class="bouton" href="mailto:Ada.Durand@assemblee-nationale.fr?subject=',
+        self.assertIn('id="courrier" data-adresse="Ada.Durand@assemblee-nationale.fr"', actif)
+        self.assertIn('id="envoi-defaut" href="mailto:Ada.Durand@assemblee-nationale.fr?subject=',
                       actif)
+        self.assertIn('id="envoi-gmail" target="_blank" rel="noopener" href="https://mail.google.com'
+                      '/mail/?view=cm&amp;fs=1&amp;tf=cm&amp;to=Ada.Durand%40assemblee-nationale.fr'
+                      '&amp;su=', actif)
         self.assertIn("L’interroger sur ce vote", actif)
-        self.assertIn("scrutin%20n%C2%B0%202", actif)
+        self.assertIn('data-objet="Votre vote du 10/07/2025 (scrutin n° 2)"', actif)
         for page in (ancien, sans_adresse):   # ancien député, ou pas d'adresse publiée
-            self.assertNotIn('class="bouton"', page)
+            self.assertNotIn('id="courrier"', page)
             self.assertNotIn("interroger", page)
+
+    def test_liens_des_messageries(self):
+        from urllib.parse import parse_qs, urlsplit
+        liens = fiche.liens_envoi("ada@exemple.fr", "Objet & co", "Ligne 1\nLigne 2")
+        gmail = parse_qs(urlsplit(liens["gmail"]).query)
+        self.assertEqual((gmail["to"][0], gmail["su"][0], gmail["body"][0]),
+                         ("ada@exemple.fr", "Objet & co", "Ligne 1\nLigne 2"))
+        for nom in ("outlook", "yahoo"):
+            champs = parse_qs(urlsplit(liens[nom]).query)
+            self.assertEqual((champs["to"][0], champs["subject"][0], champs["body"][0]),
+                             ("ada@exemple.fr", "Objet & co", "Ligne 1\nLigne 2"))
+        self.assertTrue(liens["defaut"].startswith("mailto:ada@exemple.fr?subject="))

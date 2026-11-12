@@ -141,6 +141,19 @@ def lien_courriel(adresse, objet, corps_message):
             f"&body={quote(corps_message, safe='')}")
 
 
+def liens_envoi(adresse, objet, corps_message):
+    """Liens pour envoyer le message : messageries web courantes et messagerie
+    par défaut de l'appareil. Les adresses des messageries web ne sont pas
+    documentées par leurs éditeurs et peuvent changer : voir aussi ecrire.js."""
+    a, o, c = quote(adresse, safe=""), quote(objet, safe=""), quote(corps_message, safe="")
+    return {
+        "gmail": f"https://mail.google.com/mail/?view=cm&fs=1&tf=cm&to={a}&su={o}&body={c}",
+        "outlook": f"https://outlook.live.com/mail/0/deeplink/compose?to={a}&subject={o}&body={c}",
+        "yahoo": f"https://compose.mail.yahoo.com/?to={a}&subject={o}&body={c}",
+        "defaut": lien_courriel(adresse, objet, corps_message),
+    }
+
+
 def message_au_depute(acteur, depute, scrutin=None):
     """Objet et texte du message pré-rempli, à compléter par le visiteur.
 
@@ -178,7 +191,10 @@ def _interroger(adresse, acteur, depute, scrutin):
     if not adresse:
         return ""
     objet, texte = message_au_depute(acteur, depute, scrutin)
-    return (f' <a class="interroger" href="{escape(lien_courriel(adresse, objet, texte))}">'
+    # Sans JavaScript, le lien ouvre la messagerie par défaut ; avec, le message
+    # est préparé dans le bloc « Lui écrire », où l'on choisit sa messagerie.
+    return (f' <a class="interroger" href="{escape(lien_courriel(adresse, objet, texte))}"'
+            f' data-objet="{escape(objet)}" data-texte="{escape(texte)}">'
             "L’interroger sur ce vote</a>")
 
 
@@ -272,10 +288,25 @@ def corps(db, uid, racine="", api_url=None):
     ecrire = ""
     if adresse:
         objet, texte = message_au_depute(a, d)
-        ecrire = f"""<p><a class="bouton" href="{escape(lien_courriel(adresse, objet, texte))}">Écrire à {escape(nom)}</a></p>
-<p class="doux petit">Ce bouton ouvre votre messagerie avec un message à compléter, adressé à {escape(adresse)}.
- Le message part de votre propre adresse : ce site ne le voit pas et n’en garde aucune trace.
- Si rien ne s’ouvre, copiez l’adresse ci-dessous dans votre messagerie.</p>"""
+        envois = liens_envoi(adresse, objet, texte)
+        ecrire = f"""<div class="bloc" id="courrier" data-adresse="{escape(adresse)}">
+<p class="doux petit">Complétez le message, puis choisissez comment l’envoyer. Il part de votre propre
+ messagerie, vers {escape(adresse)} : ce site ne le voit pas et n’en garde aucune trace.</p>
+<label for="courrier-objet">Objet</label>
+<input id="courrier-objet" type="text" value="{escape(objet)}">
+<label for="courrier-texte">Message</label>
+<textarea id="courrier-texte" rows="15">{escape(texte)}</textarea>
+<p class="envois"><span>Envoyer avec</span>
+<a class="bouton" id="envoi-gmail" target="_blank" rel="noopener" href="{escape(envois['gmail'])}">Gmail</a>
+<a class="bouton" id="envoi-outlook" target="_blank" rel="noopener" href="{escape(envois['outlook'])}">Outlook.com</a>
+<a class="bouton" id="envoi-yahoo" target="_blank" rel="noopener" href="{escape(envois['yahoo'])}">Yahoo Mail</a>
+<a class="bouton" id="envoi-defaut" href="{escape(envois['defaut'])}">Le logiciel de mon appareil</a>
+<button class="bouton" type="button" id="copier">Copier le message</button></p>
+<p id="courrier-retour" class="doux petit" aria-live="polite"></p>
+<p class="doux petit">Une autre messagerie (Orange, Free, La Poste…) ? Utilisez « Copier le message »,
+ puis collez-le dans un nouveau message.</p>
+</div>
+<script src="{racine}ecrire.js"></script>"""
     lignes_contact = []
     for genre in CONTACTS_AFFICHES:
         for c in contacts:
