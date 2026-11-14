@@ -21,7 +21,7 @@ def envoyer_lettre(cfg, liens, donnees, db, abonne, debut, fin, a_blanc=False, c
     if lettre["vide"]:
         return "vide", None
     sujet, texte, html = contenu.rendre(lettre, cfg.site_url, liens["gerer"],
-                                        liens["desabonner"])
+                                        liens["desabonner"], contact=cfg.contact)
     if not a_blanc:
         courriel.envoyer(cfg, courriel.construire(
             cfg, abonne["email"], sujet, texte, html, liens["desabonner"]))

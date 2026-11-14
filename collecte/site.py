@@ -313,6 +313,31 @@ def methodologie(db):
  député antérieur n’apparaît donc pas, et l’absence de mandat précédent sur une fiche ne
  signifie pas qu’il s’agit d’un premier mandat.</p>
 
+<h2 id="lettre">La lettre d’information</h2>
+<p>La lettre applique les règles de cette page à la période qu’elle couvre, avec quelques
+ règles propres.</p>
+<ul>
+<li><b>« L’essentiel » :</b> les scrutins solennels, les motions de censure et les votes sur
+ l’ensemble d’un texte ou sur une partie d’un projet de loi de finances. Au-delà de huit, la
+ lettre garde les scrutins solennels et les motions de censure, puis les votes qui ont réuni
+ le plus de députés.</li>
+<li><b>Motions de censure :</b> seuls les votes pour sont recensés par l’Assemblée. La lettre
+ dit donc qu’un député a voté la censure ou ne l’a pas votée, sans parler d’absence.</li>
+<li><b>Position du groupe :</b> elle n’est donnée que si elle réunit plus de 60 % des voix
+ exprimées par le groupe sur ce scrutin. En dessous, le groupe est dit partagé, et un vote
+ différent n’est pas présenté comme un vote contre sa ligne.</li>
+<li><b>Vote serré :</b> scrutin où l’écart entre les pour et les contre ne dépasse pas
+ dix voix.</li>
+<li><b>Médianes :</b> nombre de scrutins de la période auxquels a pris part le député médian
+ du groupe, puis de l’Assemblée, parmi les députés en exercice.</li>
+<li><b>Amendements :</b> le sort affiché est celui que publie l’Assemblée au jour de l’envoi.
+ Le texte cité est le début de l’exposé rédigé par l’auteur de l’amendement : il présente
+ son point de vue.</li>
+<li><b>Prise de parole citée :</b> la plus longue de la période, hors interruptions et rappels
+ au règlement, si elle compte au moins cent mots. C’est un critère de longueur, pas de
+ qualité.</li>
+</ul>
+
 <h2 id="adresse">Trouver son député par adresse</h2>
 <p>L’adresse que vous saisissez est envoyée par votre navigateur au service public de géocodage
  de l’IGN (Géoplateforme), qui s’appuie sur la Base Adresse Nationale et renvoie ses coordonnées.

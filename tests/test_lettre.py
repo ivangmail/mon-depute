@@ -329,15 +329,22 @@ class Lettre(unittest.TestCase):
         db.row_factory = sqlite3.Row
         lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
         self.assertFalse(lettre["vide"])
-        self.assertEqual((lettre["scrutins"], len(lettre["solennels"])), (3, 2))
+        self.assertEqual((lettre["scrutins"], len(lettre["majeurs"])), (3, 2))
         self.assertTrue(contenu.composer(db, "10", "2", "2030-01-01", "2030-01-08")["vide"])
         self.assertIsNone(contenu.composer(db, "10", "7", "2025-07-08", "2025-07-15"))
         sujet, texte, html = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
-        self.assertIn("10/07/2025 · Contre · Le texte B (rejeté)", texte)
+        self.assertIn("10/07/2025 · Contre · Le texte B (rejeté) · son groupe : contre "
+                      "(1 pour, 2 contre)", texte)
+        # À égalité dans le groupe, aucune ligne n'est affichée.
+        self.assertIn("Le texte C (adopté) · son groupe était partagé (1 pour, 1 contre)", texte)
+        self.assertIn("Elle a pris part à 2 des 3 scrutins publics de la période (médiane du "
+                      "groupe UN : 2 ; médiane de l'Assemblée : 1,5).", texte)
+        self.assertNotIn("Signalez-la", texte)
         self.assertIn("<a href=\"https://a/d\">Vous désabonner</a>", html)
         # Seul l'intitulé du scrutin est cliquable, pas la ligne entière.
         self.assertIn('<li>10/07/2025 · Contre · <a href="https://www.assemblee-nationale.fr'
-                      '/dyn/17/scrutins/2">Le texte B</a> (rejeté)</li>', html)
+                      '/dyn/17/scrutins/2">Le texte B</a> (rejeté) · son groupe : contre '
+                      '(1 pour, 2 contre)</li>', html)
         self.assertNotIn(contenu.MARQUE, texte + html + sujet)
         db.close()
 
@@ -362,16 +369,88 @@ class Lettre(unittest.TestCase):
         lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
         _, texte, _ = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
         db.close()
-        self.assertIn("SES VOTES SUR DES AMENDEMENTS ET DES ARTICLES\n"
-                      "1 vote, sur un seul texte :\n"
-                      "- Textes non identifiés : 1 vote (1 pour)", texte)
+        self.assertIn("Amendements et articles, texte par texte :\n"
+                      "- Textes non identifiés : 1 pour", texte)
         self.assertIn("4 amendements déposés comme premier signataire, dont 1 déjà adopté.\n"
-                      "- Projet de loi de finances : 2 amendements\n"
-                      "- Projet de loi santé : 1 amendement\n"
-                      "- Texte non identifié : 1 amendement", texte)
+                      "- Projet de loi de finances : 2 amendements (1 adopté, 1 sans sort connu"
+                      " à ce jour)\n"
+                      "- Projet de loi santé : 1 amendement (1 sans sort connu à ce jour)\n"
+                      "- Texte non identifié : 1 amendement (1 sans sort connu à ce jour)", texte)
         self.assertIn("Présente à la seule réunion de commission dotée d'une feuille de présence."
                       "\n- 09/07/2025 · Commission des lois · audition de la ministre ; examen"
                       " du texte", texte)
+
+    def test_essentiel_absences_et_extraits(self):
+        import sqlite3
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        # S2 devient un vote serré où Ada est absente ; une motion de censure et un
+        # scrutin sur un texte entier s'ajoutent ; S3 est rattaché à un dossier.
+        db.execute("DELETE FROM votes WHERE scrutin_uid = 'S2' AND acteur_uid = 'PA1'")
+        db.execute("UPDATE scrutins SET nb_pour = 100, nb_contre = 104 WHERE uid = 'S2'")
+        db.execute("INSERT INTO dossiers (uid, titre) VALUES ('D1', 'projet de loi eau')")
+        db.execute("UPDATE scrutins SET dossier_uid = 'D1', nb_pour = 5, nb_contre = 90"
+                   " WHERE uid = 'S3'")
+        db.executemany(
+            "INSERT INTO scrutins (uid, numero, date, type_vote, sort, titre, dossier_uid,"
+            " nb_pour, nb_contre) VALUES (?,?,?,?,?,?,?,?,?)",
+            [("S5", 5, "2025-07-11", "motion de censure", "rejeté", "la motion de censure",
+              None, 200, 0),
+             ("S6", 6, "2025-07-11", "scrutin public ordinaire", "adopté",
+              "l’ensemble de la proposition de loi eau", "D1", 60, 20),
+             ("S7", 7, "2025-07-11", "scrutin public ordinaire", "rejeté", "l'amdt 2", "D1",
+              40, 45)])
+        db.execute("INSERT INTO votes VALUES ('S6', 'PA1', 'G1', 'pour', 0)")
+        db.execute("INSERT INTO documents (uid, type, titre) VALUES ('T1', 'PRJL', 'texte eau')")
+        db.executemany(
+            "INSERT INTO amendements (uid, numero, texte_uid, acteur_uid, type_auteur,"
+            " date_depot, sort, etat, expose) VALUES (?,?, 'T1', 'PA1', 'Député',"
+            " '2025-07-09', ?,?,?)",
+            [("A1", "12", "Rejeté", "Discuté", "Cet amendement vise à protéger l'eau."),
+             ("A2", "13", "Rejeté", "Discuté", "Cet amendement vise à protéger l'eau."),
+             ("A3", "14", None, "Irrecevable 40", None)])
+        db.execute("INSERT INTO comptes_rendus (uid, date) VALUES ('CR1', '2025-07-09')")
+        db.executemany(
+            "INSERT INTO interventions (compte_rendu_uid, acteur_uid, code_grammaire, sujet,"
+            " nb_mots, texte) VALUES ('CR1', 'PA1', ?, 'Eau', ?, ?)",
+            [("INTERRUPTION_1_10", 400, "Une interruption."),
+             ("PAROLE_GENERIQUE", 150, "Madame la présidente, l'eau manque."),
+             ("PAROLE_GENERIQUE", 30, "Une remarque courte.")])
+        lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
+        _, texte, html = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d",
+                                        contact="contact@exemple.fr")
+        db.close()
+        self.assertIn("10/07/2025 · N'a pas pris part au vote · Le texte B (rejeté, à 4 voix "
+                      "près) · son groupe était partagé (1 pour, 1 contre)", texte)
+        self.assertIn(contenu.ABSENCE, texte)
+        self.assertIn("11/07/2025 · N'a pas voté la censure · La motion de censure (rejeté)\n",
+                      texte)
+        self.assertIn("Pour une motion de censure, seuls les votes pour sont recensés.", texte)
+        self.assertIn("11/07/2025 · Pour · L’ensemble de la proposition de loi eau (adopté)"
+                      " · son groupe : pour (1 pour)", texte)
+        # S2 et S7 sont serrés ; la motion de censure n'entre pas dans ce décompte.
+        self.assertIn("2 scrutins se sont joués à 10 voix ou moins : elle a pris part à 0 "
+                      "d'entre eux.", texte)
+        # Le vote sur le texte entier n'est pas recompté dans le détail par texte.
+        self.assertIn("- Projet de loi eau : 2 scrutins sans participation", texte)
+        self.assertIn("- Texte eau : 3 amendements (2 rejetés, 1 irrecevable)\n"
+                      "- Amendement n° 12 (rejeté), selon l'exposé de son auteur : « Cet "
+                      "amendement vise à protéger l'eau. »\n\n", texte)
+        self.assertIn("Sa plus longue prise de parole (09/07/2025, 150 mots, sur « Eau »), "
+                      "début : « Madame la présidente, l'eau manque. »", texte)
+        self.assertIn("Une erreur dans cette lettre ? Signalez-la : contact@exemple.fr", texte)
+        self.assertIn('<a href="mailto:contact@exemple.fr">Signalez-la</a>', html)
+
+    def test_position_du_groupe(self):
+        self.assertEqual(contenu.position_du_groupe({"pour": 7, "contre": 3}),
+                         ("pour", "son groupe : pour (7 pour, 3 contre)"))
+        # 60 % tout juste ne suffit pas : il faut dépasser le seuil.
+        self.assertEqual(contenu.position_du_groupe({"pour": 6, "contre": 4}),
+                         (None, "son groupe était partagé (6 pour, 4 contre)"))
+        self.assertEqual(contenu.position_du_groupe({}), (None, ""))
+        self.assertEqual(contenu.sort_amendement(None, "Irrecevable 40"), "irrecevable")
+        self.assertEqual(contenu.sort_amendement(None, "A discuter"), "sans sort connu à ce jour")
+        self.assertEqual(contenu._accorder(2, "non soutenu"), "2 non soutenus")
 
     def test_votes_regroupes_par_texte(self):
         votes = ([{"dossier_uid": "D1", "texte": "projet de loi de finances", "position": p}
@@ -386,6 +465,14 @@ class Lettre(unittest.TestCase):
         self.assertEqual(groupes[0]["lien"],
                          "https://www.assemblee-nationale.fr/dyn/17/dossiers/D1")
         self.assertIsNone(groupes[2]["lien"])
+        # Avec le nombre de scrutins tenus, les absences entrent dans le décompte.
+        groupes = contenu.votes_par_texte(votes[:5], [
+            {"dossier_uid": "D1", "texte": "projet de loi de finances", "n": 8},
+            {"dossier_uid": "D3", "texte": "projet de loi eau", "n": 1}])
+        self.assertEqual([(g["texte"], g["decompte"]) for g in groupes], [
+            ("Projet de loi de finances",
+             "1 pour, 2 contre, 2 abstentions, 3 scrutins sans participation"),
+            ("Projet de loi eau", "1 scrutin sans participation")])
 
     def test_objet_de_reunion_raccourci(self):
         self.assertEqual(contenu.raccourcir("-Nomination de rapporteurs sur : -la proposition"),

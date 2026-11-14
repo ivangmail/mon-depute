@@ -26,6 +26,7 @@ class Config:
     smtp_mot_de_passe: str = ""
     dossier_courriels: str = ""   # si renseigné, les e-mails sont écrits ici au lieu d'être envoyés
     derriere_proxy: bool = False  # vrai si un serveur frontal renseigne X-Forwarded-For
+    contact: str = ""             # adresse publiée pour signaler une erreur dans une lettre
 
     @property
     def origine(self):
@@ -60,4 +61,5 @@ def depuis_environnement(env=None):
         smtp_mot_de_passe=env.get("MD_SMTP_MOT_DE_PASSE", ""),
         dossier_courriels=env.get("MD_DOSSIER_COURRIELS", ""),
         derriere_proxy=env.get("MD_DERRIERE_PROXY", "") == "1",
+        contact=env.get("MD_CONTACT", "").strip(),
     )
