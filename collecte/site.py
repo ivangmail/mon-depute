@@ -344,10 +344,18 @@ def methodologie(db):
 <h2 id="themes">Les thèmes</h2>
 <p>Avant d’arriver en séance, chaque texte est examiné « au fond » par une commission de
  l’Assemblée. Le thème d’un texte est celui de cette commission, lors de la première lecture
- à l’Assemblée qui en a eu une. Aucun texte n’est lu ni interprété pour le classer.</p>
+ à l’Assemblée qui en a eu une. Le contenu des textes n’est ni lu ni interprété pour les
+ classer : seul leur titre sert, pour une commission, comme expliqué sous le tableau.</p>
 <table class="themes"><tr><th>Commission saisie au fond</th><th>Thème affiché</th></tr>
 {"".join(f"<tr><td>{escape(c)}…</td><td>{escape(t)}</td></tr>" for c, t in themes.COMMISSIONS)}
 </table>
+{"".join(f"""<p>Les textes de la {escape(c[0].lower() + c[1:])} sont répartis d’après leur
+ titre. {" ".join(f"Thème « {escape(t)} » si le titre contient l’un de ces mots : "
+ f"{escape(', '.join(mots))} (sauf s’il contient aussi : {escape(', '.join(exclus))})."
+ for t, mots, exclus in regles)} Un mot terminé par « … » vaut pour tous les mots qui
+ commencent ainsi. Un titre qui contient les mots de deux thèmes, ou aucun, garde le thème
+ de la commission. Ce tri peut se tromper ; les erreurs repérées sont corrigées à la main.</p>"""
+ for c, regles in themes.MOTS_CLES.items())}
 <p>Une commission couvre souvent plusieurs domaines, d’où des thèmes larges : la commission des
  lois traite aussi bien de justice que d’élections ou de police. Les textes confiés à une
  commission spéciale, créée pour un seul texte, sont classés à la main ; ces choix sont

@@ -531,6 +531,24 @@ class Themes(unittest.TestCase):
             "Budget et fiscalité")
         self.assertIsNone(themes.theme_de_commission("Commission spéciale chargée d'examiner…"))
         self.assertIsNone(themes.theme_de_commission(None))
+        # Les textes de la commission des affaires économiques sont répartis d'après leur titre.
+        eco = "Commission des affaires économiques"
+        self.assertEqual(themes.theme_de_commission(eco, "Relancer le secteur du logement"),
+                         "Logement et urbanisme")
+        self.assertEqual(themes.theme_de_commission(eco, "Encadrer les loyers"),
+                         "Logement et urbanisme")
+        self.assertEqual(themes.theme_de_commission(eco, "Sauver la filière noisette et noix"),
+                         "Agriculture et alimentation")
+        for titre in ("Plafonner l'indice des loyers commerciaux",   # mot exclu
+                      "Prolonger les titres restaurant pour tout produit alimentaire",
+                      "La construction en zone agricole et le logement",  # deux thèmes
+                      "Soutenir les commerces de proximité",          # aucun mot
+                      "Interdire le vinyle", None):                   # « vin » : mot entier
+            self.assertEqual(themes.theme_de_commission(eco, titre),
+                             "Économie, énergie et consommation", titre)
+        # Les mots-clés ne valent que pour la commission des affaires économiques.
+        self.assertEqual(themes.theme_de_commission("Commission des lois", "Le logement"),
+                         "Institutions, justice et sécurité")
         db = base.ouvrir(os.path.join(self.tmp.name, "t.sqlite"))
         db.executemany("INSERT INTO organes (uid, libelle) VALUES (?,?)",
                        [("PO1", "Commission des lois constitutionnelles"),
