@@ -8,7 +8,7 @@ import json
 import os
 from html import escape
 
-from . import fiche, indicateurs
+from . import fiche, indicateurs, themes
 
 NOM_SITE = "Mon député"
 ICI = os.path.dirname(__file__)
@@ -336,7 +336,24 @@ def methodologie(db):
 <li><b>Prise de parole citée :</b> la plus longue de la période, hors interruptions et rappels
  au règlement, si elle compte au moins cent mots. C’est un critère de longueur, pas de
  qualité.</li>
+<li><b>Textes de sa commission :</b> scrutins de la période sur les textes examinés au fond par
+ la commission permanente dont le député est membre aujourd’hui. C’est là que porte sa
+ spécialité ; la médiane est celle des membres actuels de cette commission.</li>
 </ul>
+
+<h2 id="themes">Les thèmes</h2>
+<p>Avant d’arriver en séance, chaque texte est examiné « au fond » par une commission de
+ l’Assemblée. Le thème d’un texte est celui de cette commission, lors de la première lecture
+ à l’Assemblée qui en a eu une. Aucun texte n’est lu ni interprété pour le classer.</p>
+<table class="themes"><tr><th>Commission saisie au fond</th><th>Thème affiché</th></tr>
+{"".join(f"<tr><td>{escape(c)}…</td><td>{escape(t)}</td></tr>" for c, t in themes.COMMISSIONS)}
+</table>
+<p>Une commission couvre souvent plusieurs domaines, d’où des thèmes larges : la commission des
+ lois traite aussi bien de justice que d’élections ou de police. Les textes confiés à une
+ commission spéciale, créée pour un seul texte, sont classés à la main ; ces choix sont
+ publiés, avec leur motif, dans le fichier <code>collecte/themes_corrections.csv</code> du
+ <a href="{DEPOT}">code source</a>. Les résolutions et les motions de censure, qui ne passent
+ pas en commission, n’ont pas de thème.</p>
 
 <h2 id="adresse">Trouver son député par adresse</h2>
 <p>L’adresse que vous saisissez est envoyée par votre navigateur au service public de géocodage

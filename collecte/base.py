@@ -152,7 +152,8 @@ CREATE TABLE IF NOT EXISTS dossiers (
     legislature  TEXT,
     titre        TEXT,
     chemin       TEXT,
-    procedure    TEXT
+    procedure    TEXT,
+    commission_fond TEXT    -- commission de l'Assemblée saisie au fond (organe)
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -233,4 +234,18 @@ def ouvrir(chemin):
     connexion.execute("PRAGMA journal_mode = WAL")
     connexion.execute("PRAGMA synchronous = NORMAL")
     connexion.executescript(SCHEMA)
+    _ajouter_colonnes(connexion)
     return connexion
+
+
+# Colonnes ajoutées après la création des premières bases : CREATE TABLE IF NOT
+# EXISTS ne modifie pas une table existante, on les ajoute donc ici.
+COLONNES_AJOUTEES = (("dossiers", "commission_fond", "TEXT"),)
+
+
+def _ajouter_colonnes(connexion):
+    for table, colonne, genre in COLONNES_AJOUTEES:
+        existantes = {c[1] for c in connexion.execute(f"PRAGMA table_info({table})")}
+        if colonne not in existantes:
+            connexion.execute(f"ALTER TABLE {table} ADD COLUMN {colonne} {genre}")
+    connexion.commit()

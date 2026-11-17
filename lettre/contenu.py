@@ -9,7 +9,7 @@ import re
 import statistics
 from html import escape
 
-from collecte import fiche, indicateurs, site
+from collecte import fiche, indicateurs, site, themes
 from collecte.portrait import jour, ordinal
 from collecte.sources import LEGISLATURE
 
@@ -85,7 +85,7 @@ def votes_par_texte(votes, scrutins=()):
     def groupe(cle, texte):
         return groupes.setdefault(cle or "", {
             "texte": fiche.majuscule(texte or "") or "Textes non identifiés",
-            "lien": URL_DOSSIER.format(cle) if cle else None,
+            "lien": URL_DOSSIER.format(cle) if cle else None, "uid": cle or None,
             "total": 0, "pour": 0, "contre": 0, "abstention": 0, "sans": 0})
 
     for v in votes:
@@ -140,13 +140,20 @@ def _accorder(n, libelle):
     return f"{n} " + " ".join(m + "s" if m in ACCORDS else m for m in libelle.split())
 
 
+def _cle_base(db):
+    """Identifie la base et son dernier chargement : un calcul mis en cache n'est
+    réutilisé que tant que les données n'ont pas été mises à jour."""
+    chemin = db.execute("PRAGMA database_list").fetchone()[2]
+    return chemin, db.execute("SELECT max(charge_le) FROM imports").fetchone()[0]
+
+
 _MEDIANES = {}
 
 
 def medianes(db, debut, fin, groupe_uid, scrutins):
     """Nombre médian de scrutins auxquels un député en exercice a pris part pendant
     la période : (médiane du groupe, médiane de l'Assemblée)."""
-    cle = (debut, fin, scrutins)
+    cle = (_cle_base(db), debut, fin, scrutins)
     if cle not in _MEDIANES:
         if len(_MEDIANES) > 50:
             _MEDIANES.clear()
@@ -160,6 +167,39 @@ def medianes(db, debut, fin, groupe_uid, scrutins):
     groupe = [n for g, n in _MEDIANES[cle] if g == groupe_uid]
     return (statistics.median(groupe) if groupe else None,
             statistics.median(tous) if tous else None)
+
+
+_COMMISSIONS = {}
+
+
+def participation_commission(db, debut, fin, organe):
+    """Scrutins de la période sur les textes examinés au fond par une commission.
+
+    Renvoie (nombre de scrutins, {député: votes exprimés sur ces scrutins},
+    membres actuels de la commission en exercice)."""
+    cle = (_cle_base(db), debut, fin, organe)
+    if cle not in _COMMISSIONS:
+        if len(_COMMISSIONS) > 100:
+            _COMMISSIONS.clear()
+        ids = [r[0] for r in db.execute(
+            "SELECT s.uid FROM scrutins s JOIN dossiers d ON d.uid = s.dossier_uid"
+            " WHERE d.commission_fond = ? AND s.date >= ? AND s.date < ?",
+            (organe, debut, fin)).fetchall()]
+        votes = {}
+        for i in range(0, len(ids), 500):
+            morceau = ids[i:i + 500]
+            for acteur, n in db.execute(
+                    f"SELECT acteur_uid, count(*) FROM votes WHERE scrutin_uid IN"
+                    f" ({','.join('?' * len(morceau))}) AND position IN {indicateurs.EXPRIMES}"
+                    " GROUP BY acteur_uid", morceau).fetchall():
+                votes[acteur] = votes.get(acteur, 0) + n
+        membres = [r[0] for r in db.execute(
+            "SELECT DISTINCT m.acteur_uid FROM mandats m JOIN deputes d"
+            " ON d.acteur_uid = m.acteur_uid AND d.en_exercice = 1"
+            " WHERE m.organe_uid = ? AND m.type_organe = 'COMPER' AND m.date_fin IS NULL",
+            (organe,)).fetchall()]
+        _COMMISSIONS[cle] = (len(ids), votes, membres)
+    return _COMMISSIONS[cle]
 
 
 def _nombre(valeur):
@@ -214,7 +254,7 @@ def composer(db, departement, circo, debut, fin):
     majeurs = []
     for s in db.execute(f"""
             SELECT s.uid, s.numero, s.date, s.titre, s.sort, s.type_vote, s.nb_pour, s.nb_contre,
-                   s.nb_votants,
+                   s.nb_votants, s.dossier_uid,
                    v.position, v.groupe_uid FROM scrutins s
             LEFT JOIN votes v ON v.scrutin_uid = s.uid AND v.acteur_uid = :uid
             WHERE {MAJEUR} AND s.date >= :debut AND s.date < :fin
@@ -289,14 +329,15 @@ def composer(db, departement, circo, debut, fin):
           AND date_depot >= :debut AND date_depot < :fin""", bornes).fetchone()
     deposes = db.execute("""
         SELECT coalesce(doc.titre, 'Texte non identifié') AS titre, a.numero, a.sort, a.etat,
-               a.expose
+               a.expose, doc.dossier_uid
         FROM amendements a LEFT JOIN documents doc ON doc.uid = a.texte_uid
         WHERE a.acteur_uid = :uid AND a.type_auteur = 'Député'
           AND a.date_depot >= :debut AND a.date_depot < :fin
         ORDER BY (a.sort IS NULL), a.date_depot DESC, a.uid""", bornes).fetchall()
-    par_texte, exemples = {}, []
+    par_texte, exemples, dossier_du_texte = {}, [], {}
     for a in deposes:
         sort = sort_amendement(a["sort"], a["etat"])
+        dossier_du_texte.setdefault(a["titre"], a["dossier_uid"])
         sorts = par_texte.setdefault(a["titre"], {})
         sorts[sort] = sorts.get(sort, 0) + 1
         expose = raccourcir(a["expose"], LONGUEUR_EXTRAIT)
@@ -306,9 +347,33 @@ def composer(db, departement, circo, debut, fin):
                              "expose": expose})
     amendements_par_texte = sorted(
         ((titre, sum(sorts.values()),
-          ", ".join(_accorder(n, s) for s, n in sorted(sorts.items(), key=lambda c: -c[1])))
+          ", ".join(_accorder(n, s) for s, n in sorted(sorts.items(), key=lambda c: -c[1])),
+          dossier_du_texte.get(titre))
          for titre, sorts in par_texte.items()),
         key=lambda t: (-t[1], t[0].lower()))
+    themes_des_textes = themes.pour_dossiers(
+        db, [m["dossier_uid"] for m in majeurs] + [v["dossier_uid"] for v in autres_votes]
+        + [t["dossier_uid"] for t in scrutins_par_texte] + [a["dossier_uid"] for a in deposes])
+    votes_par_theme = {}
+    for v in [m for m in majeurs if m["position"] and not m["censure"]] + list(autres_votes):
+        theme = themes_des_textes.get(v["dossier_uid"])
+        if theme:
+            votes_par_theme[theme] = votes_par_theme.get(theme, 0) + 1
+    sa_commission = db.execute("""
+        SELECT m.organe_uid, o.libelle_abrege, o.libelle FROM mandats m
+        JOIN organes o ON o.uid = m.organe_uid
+        WHERE m.acteur_uid = :uid AND m.type_organe = 'COMPER' AND m.date_fin IS NULL
+        ORDER BY (m.qualite = 'Membre') DESC, m.date_debut DESC LIMIT 1""", bornes).fetchone()
+    commission_votes = None
+    if sa_commission and themes.disponible(db):
+        n, votes_membres, membres = participation_commission(db, debut, fin,
+                                                             sa_commission["organe_uid"])
+        if n:
+            commission_votes = {
+                "nom": sa_commission["libelle_abrege"] or sa_commission["libelle"],
+                "scrutins": n, "exprimes": votes_membres.get(uid, 0),
+                "mediane": (statistics.median(votes_membres.get(m, 0) for m in membres)
+                            if membres else None)}
     parole = db.execute(f"""
         SELECT c.date, i.sujet, i.nb_mots, i.texte FROM interventions i
         JOIN comptes_rendus c ON c.uid = i.compte_rendu_uid
@@ -368,6 +433,9 @@ def composer(db, departement, circo, debut, fin):
         "interventions": interventions, "sujets": [(s["sujet"], s["n"]) for s in sujets],
         "amendements": amendements[0] or 0, "amendements_adoptes": amendements[1] or 0,
         "amendements_par_texte": amendements_par_texte, "amendements_exemples": exemples,
+        "themes": themes_des_textes,
+        "votes_par_theme": sorted(votes_par_theme.items(), key=lambda t: (-t[1], t[0])),
+        "commission_votes": commission_votes,
         "reunions": [dict(r) for r in reunions],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
@@ -403,7 +471,9 @@ def rubriques(l):
                 "à égalité de voix" if m["ecart"] == 0 else
                 f"à {_pluriel(m['ecart'], 'voix', 'voix')} près")
         apres = (f" ({resultat})" if resultat else "") + (f" · {m['groupe']}" if m["groupe"] else "")
-        elements.append((lier(f"{jour(m['date'])} · {position} · ", intitule(m["titre"]), apres),
+        theme = (l.get("themes") or {}).get(m.get("dossier_uid"))
+        elements.append((lier(f"{theme + ' — ' if theme else ''}{jour(m['date'])} · {position} · ",
+                              intitule(m["titre"]), apres),
                          fiche.URL_SCRUTIN.format(m["numero"])))
     if elements:
         if any(m["censure"] for m in l["majeurs"]):
@@ -440,8 +510,21 @@ def rubriques(l):
                 f"{l['serres_exprimes']} d'entre eux." if l["serres"] > 1 else
                 f"1 scrutin s’est joué à {ECART_SERRE} voix ou moins : {il.lower()} "
                 + ("y a pris part." if l["serres_exprimes"] else "n'y a pas pris part."))
+        c = l.get("commission_votes")
+        if c:
+            phrases.append(
+                f"Sur les textes examinés au fond par sa commission ({c['nom']}), "
+                f"{il.lower()} a pris part à {c['exprimes']} des "
+                f"{_pluriel(c['scrutins'], 'scrutin')}"
+                + (f" (médiane des membres de la commission : {_nombre(c['mediane'])})"
+                   if c["mediane"] is not None else "") + ".")
+        if l.get("votes_par_theme"):
+            phrases.append("Ses votes par thème : " + " ; ".join(
+                f"{t} ({n})" for t, n in l["votes_par_theme"]) + ".")
+        noms = l.get("themes") or {}
         groupes = votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
-        elements = [(lier("", g["texte"], f" : {g['decompte']}"), g["lien"])
+        elements = [(lier(f"{noms[g['uid']]} — " if noms.get(g["uid"]) else "", g["texte"],
+                          f" : {g['decompte']}"), g["lien"])
                     for g in groupes[:LIMITE]]
         if len(groupes) > LIMITE:
             elements.append((f"Et {_pluriel(len(groupes) - LIMITE, 'autre texte', 'autres textes')}"
@@ -460,14 +543,13 @@ def rubriques(l):
                 f"{l['sigle']}, quand celui-ci votait nettement dans un sens"
                 + (f" ; les {LIMITE} premiers :" if n > LIMITE else " :"))
         if partages:
+            # Avant la liste, pour que la phrase qui l'annonce reste juste au-dessus.
             phrases.insert(0, (
-                _pluriel(partages, "autre vote", "autres votes") if n else
-                _pluriel(partages, "vote", "votes")) + " sur "
-                + ("un scrutin où son groupe était partagé" if partages == 1 else
-                   "des scrutins où son groupe était partagé")
-                + f" (aucune position n'y dépassait {int(SEUIL_LIGNE * 100)} % de ses voix)"
-                + (" ne sont pas listés." if n and partages > 1 else
-                   " n'est pas listé." if n else "."))
+                "Sur un scrutin où son groupe était partagé" if partages == 1 else
+                f"Sur {partages} scrutins où son groupe était partagé")
+                + f" (aucune position n'y dépassait {int(SEUIL_LIGNE * 100)} % de ses voix), "
+                + ("son vote n'est pas compté comme un écart." if partages == 1 else
+                   "ses votes ne sont pas comptés comme des écarts."))
         sorties.append((
             "Votes contre la ligne de son groupe", phrases,
             [(lier(f"{jour(v['date'])} · {fiche.LIBELLES_POSITION[v['position']]} (groupe : "
@@ -514,11 +596,13 @@ def rubriques(l):
                           f"{'s' if l['amendements_adoptes'] > 1 else ''}"
                           if l["amendements_adoptes"] else "") + ".")
     par_texte = l.get("amendements_par_texte") or []
-    for titre, n, sorts in par_texte[:LIMITE]:
-        elements.append((f"{fiche.majuscule(titre)} : {_pluriel(n, 'amendement')} ({sorts})",
-                         None))
+    noms = l.get("themes") or {}
+    for titre, n, sorts, dossier in par_texte[:LIMITE]:
+        theme = noms.get(dossier)
+        elements.append((f"{theme + ' — ' if theme else ''}{fiche.majuscule(titre)} : "
+                         f"{_pluriel(n, 'amendement')} ({sorts})", None))
     if len(par_texte) > LIMITE:
-        reste = sum(n for _, n, _ in par_texte[LIMITE:])
+        reste = sum(t[1] for t in par_texte[LIMITE:])
         elements.append((f"Autres textes : {_pluriel(reste, 'amendement')}", None))
     for a in l.get("amendements_exemples") or []:
         elements.append((f"Amendement n° {a['numero']} ({a['sort']}), selon l'exposé de son "

@@ -469,3 +469,89 @@ class EcrireAuDepute(unittest.TestCase):
             self.assertEqual((champs["to"][0], champs["subject"][0], champs["body"][0]),
                              ("ada@exemple.fr", "Objet & co", "Ligne 1\nLigne 2"))
         self.assertTrue(liens["defaut"].startswith("mailto:ada@exemple.fr?subject="))
+
+
+from collecte import themes  # noqa: E402
+
+
+class Themes(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_commission_saisie_au_fond(self):
+        def acte(code, organe=None, enfants=None):
+            a = {"codeActe": code, "organeRef": organe}
+            if enfants:
+                a["actesLegislatifs"] = {"acteLegislatif": enfants}
+            return a
+        # Le Sénat a été saisi en premier, puis l'Assemblée en première et en
+        # nouvelle lecture : seule la première saisie de l'Assemblée compte.
+        dossier = {"dossierParlementaire": {
+            "uid": "DL1", "@xsi:type": "DossierLegislatif_Type", "legislature": "17",
+            "titreDossier": {"titre": "Protéger l'eau", "titreChemin": "eau"},
+            "procedureParlementaire": {"libelle": "Proposition de loi ordinaire"},
+            "actesLegislatifs": {"acteLegislatif": [
+                acte("SN1", enfants=acte("SN1-COM", "PO_SN", acte("SN1-COM-FOND-SAISIE", "PO_SN"))),
+                acte("AN1", enfants=[acte("AN1-DEPOT"), acte("AN1-COM", "PO1", [
+                    acte("AN1-COM-AVIS-SAISIE", "PO9"), acte("AN1-COM-FOND-SAISIE", "PO1")])]),
+                acte("ANNLEC", enfants=acte("ANNLEC-COM-FOND-SAISIE", "PO2"))]}}}
+        sans = {"dossierParlementaire": {"uid": "DL2", "legislature": "17",
+                                         "titreDossier": {"titre": "Résolution"}}}
+        chemin = archive(self.tmp.name, "d.zip", {
+            "json/dossierParlementaire/DL1.json": dossier,
+            "json/dossierParlementaire/DL2.json": sans})
+        db = base.ouvrir(os.path.join(self.tmp.name, "b.sqlite"))
+        chargeurs.charger_dossiers(db, [chemin])
+        self.assertEqual(dict(db.execute("SELECT uid, commission_fond FROM dossiers")),
+                         {"DL1": "PO1", "DL2": None})
+        db.close()
+
+    def test_colonne_ajoutee_a_une_base_existante(self):
+        import sqlite3
+        chemin = os.path.join(self.tmp.name, "ancienne.sqlite")
+        ancienne = sqlite3.connect(chemin)
+        ancienne.execute("CREATE TABLE dossiers (uid TEXT PRIMARY KEY, type TEXT,"
+                         " legislature TEXT, titre TEXT, chemin TEXT, procedure TEXT)")
+        ancienne.execute("INSERT INTO dossiers (uid) VALUES ('DL1')")
+        ancienne.commit()
+        self.assertFalse(themes.disponible(ancienne))
+        self.assertEqual(themes.pour_dossiers(ancienne, ["DL1"]), {})
+        ancienne.close()
+        db = base.ouvrir(chemin)
+        self.assertTrue(themes.disponible(db))
+        self.assertEqual(db.execute("SELECT commission_fond FROM dossiers").fetchone()[0], None)
+        db.close()
+
+    def test_theme_selon_la_commission_et_corrections(self):
+        self.assertEqual(themes.theme_de_commission(
+            "Commission des finances, de l'économie générale et du contrôle budgétaire"),
+            "Budget et fiscalité")
+        self.assertIsNone(themes.theme_de_commission("Commission spéciale chargée d'examiner…"))
+        self.assertIsNone(themes.theme_de_commission(None))
+        db = base.ouvrir(os.path.join(self.tmp.name, "t.sqlite"))
+        db.executemany("INSERT INTO organes (uid, libelle) VALUES (?,?)",
+                       [("PO1", "Commission des lois constitutionnelles"),
+                        ("PO2", "Commission spéciale chargée d'examiner le texte")])
+        db.executemany("INSERT INTO dossiers (uid, commission_fond) VALUES (?,?)",
+                       [("D1", "PO1"), ("D2", "PO2"), ("D3", None), ("D4", "PO1")])
+        corrections = {"D2": "Défense", "D4": "Affaires étrangères"}
+        self.assertEqual(themes.pour_dossiers(db, ["D1", "D2", "D3", "D4", None], corrections),
+                         {"D1": "Institutions, justice et sécurité", "D2": "Défense",
+                          "D4": "Affaires étrangères"})
+        db.close()
+
+    def test_fichier_de_corrections(self):
+        chemin = os.path.join(self.tmp.name, "c.csv")
+        with open(chemin, "w", encoding="utf-8") as f:
+            f.write("# commentaire\ndossier;theme;motif\nD1;Défense;parce que\n\n")
+        self.assertEqual(themes.lire_corrections(chemin), {"D1": "Défense"})
+        with open(chemin, "a", encoding="utf-8") as f:
+            f.write("D2;Défence;faute de frappe\n")
+        with self.assertRaises(ValueError):
+            themes.lire_corrections(chemin)
+        self.assertEqual(themes.lire_corrections(os.path.join(self.tmp.name, "absent.csv")), {})
+        # Le fichier livré avec le code ne contient que des thèmes connus.
+        self.assertTrue(themes.lire_corrections())

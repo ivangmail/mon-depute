@@ -388,7 +388,11 @@ class Lettre(unittest.TestCase):
         # scrutin sur un texte entier s'ajoutent ; S3 est rattaché à un dossier.
         db.execute("DELETE FROM votes WHERE scrutin_uid = 'S2' AND acteur_uid = 'PA1'")
         db.execute("UPDATE scrutins SET nb_pour = 100, nb_contre = 104 WHERE uid = 'S2'")
-        db.execute("INSERT INTO dossiers (uid, titre) VALUES ('D1', 'projet de loi eau')")
+        # D1 est examiné au fond par la commission des lois, dont Ada et Léo sont membres.
+        db.execute("INSERT INTO dossiers (uid, titre, commission_fond)"
+                   " VALUES ('D1', 'projet de loi eau', 'C1')")
+        db.executemany("INSERT INTO mandats VALUES (?,?, 'C1', 'COMPER', '17', '2024-07-20',"
+                       " NULL, 'Membre')", [("MC1", "PA1"), ("MC2", "PA2")])
         db.execute("UPDATE scrutins SET dossier_uid = 'D1', nb_pour = 5, nb_contre = 90"
                    " WHERE uid = 'S3'")
         db.executemany(
@@ -426,13 +430,21 @@ class Lettre(unittest.TestCase):
         self.assertIn("11/07/2025 · N'a pas voté la censure · La motion de censure (rejeté)\n",
                       texte)
         self.assertIn("Pour une motion de censure, seuls les votes pour sont recensés.", texte)
-        self.assertIn("11/07/2025 · Pour · L’ensemble de la proposition de loi eau (adopté)"
-                      " · son groupe : pour (1 pour)", texte)
+        self.assertIn("- Institutions, justice et sécurité — 11/07/2025 · Pour · L’ensemble de"
+                      " la proposition de loi eau (adopté) · son groupe : pour (1 pour)", texte)
+        # Le texte B n'est rattaché à aucun dossier : pas de thème.
+        self.assertIn("- 10/07/2025 · N'a pas pris part au vote · Le texte B", texte)
+        # S3, S6 et S7 portent sur D1 ; Ada a voté sur S6 seulement, Léo sur aucun.
+        self.assertIn("Sur les textes examinés au fond par sa commission (LOIS), elle a pris "
+                      "part à 1 des 3 scrutins (médiane des membres de la commission : 0,5).",
+                      texte)
+        self.assertIn("Ses votes par thème : Institutions, justice et sécurité (1).", texte)
         # S2 et S7 sont serrés ; la motion de censure n'entre pas dans ce décompte.
         self.assertIn("2 scrutins se sont joués à 10 voix ou moins : elle a pris part à 0 "
                       "d'entre eux.", texte)
         # Le vote sur le texte entier n'est pas recompté dans le détail par texte.
-        self.assertIn("- Projet de loi eau : 2 scrutins sans participation", texte)
+        self.assertIn("- Institutions, justice et sécurité — Projet de loi eau : 2 scrutins sans"
+                      " participation", texte)
         self.assertIn("- Texte eau : 3 amendements (2 rejetés, 1 irrecevable)\n"
                       "- Amendement n° 12 (rejeté), selon l'exposé de son auteur : « Cet "
                       "amendement vise à protéger l'eau. »\n\n", texte)

@@ -1,0 +1,89 @@
+"""Thème d'un texte, déduit de la commission de l'Assemblée saisie au fond.
+
+Chaque texte est examiné par une commission avant d'arriver en séance. Les huit
+commissions permanentes couvrent chacune un domaine : leur nom sert de thème,
+sans aucune lecture du contenu. Un domaine en réunit souvent plusieurs (la
+commission des lois traite d'institutions, de justice et de sécurité), d'où des
+libellés composés. Les textes confiés à une commission spéciale, et les erreurs
+manifestes, sont classés à la main dans themes_corrections.csv.
+"""
+
+import csv
+import os
+
+# Début du libellé officiel de la commission -> thème affiché. Le libellé est
+# plus stable d'une législature à l'autre que l'identifiant de la commission.
+COMMISSIONS = (
+    ("Commission des finances", "Budget et fiscalité"),
+    ("Commission des affaires économiques", "Économie, agriculture et logement"),
+    ("Commission des affaires sociales", "Santé, travail et solidarités"),
+    ("Commission des affaires culturelles", "Éducation, culture et médias"),
+    ("Commission du développement durable", "Environnement et transports"),
+    ("Commission des lois", "Institutions, justice et sécurité"),
+    ("Commission des affaires étrangères", "Affaires étrangères"),
+    ("Commission de la défense", "Défense"),
+)
+THEMES = tuple(theme for _, theme in COMMISSIONS)
+CORRECTIONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "themes_corrections.csv")
+
+
+def theme_de_commission(libelle):
+    """Thème correspondant au libellé d'une commission, ou None."""
+    for debut, theme in COMMISSIONS:
+        if (libelle or "").startswith(debut):
+            return theme
+    return None
+
+
+def lire_corrections(chemin=CORRECTIONS):
+    """{dossier: thème} lu dans le fichier des corrections manuelles.
+
+    Une ligne qui commence par # est un commentaire. Un thème inconnu est
+    refusé, pour qu'une faute de frappe ne crée pas un thème de plus.
+    """
+    if not os.path.exists(chemin):
+        return {}
+    resultat = {}
+    with open(chemin, encoding="utf-8", newline="") as f:
+        lignes = (l for l in f if l.strip() and not l.lstrip().startswith("#"))
+        for numero, ligne in enumerate(csv.DictReader(lignes, delimiter=";"), start=2):
+            dossier, theme = (ligne.get("dossier") or "").strip(), (ligne.get("theme") or "").strip()
+            if theme not in THEMES:
+                raise ValueError(f"{chemin} : thème inconnu « {theme} » pour {dossier}")
+            resultat[dossier] = theme
+    return resultat
+
+
+_CORRECTIONS = None
+
+
+def disponible(db):
+    """Vrai si la base connaît la commission saisie au fond. Une base créée avant
+    cet ajout ne l'a qu'après le prochain chargement des dossiers."""
+    return any(c[1] == "commission_fond" for c in db.execute("PRAGMA table_info(dossiers)"))
+
+
+def pour_dossiers(db, uids, corrections=None):
+    """{dossier: thème} pour les dossiers demandés qui en ont un."""
+    global _CORRECTIONS
+    if corrections is None:
+        if _CORRECTIONS is None:
+            _CORRECTIONS = lire_corrections()
+        corrections = _CORRECTIONS
+    uids = sorted({u for u in uids if u})
+    resultat = {}
+    if not disponible(db):
+        return resultat
+    for debut in range(0, len(uids), 500):
+        morceau = uids[debut:debut + 500]
+        for uid, libelle in db.execute(
+                "SELECT d.uid, o.libelle FROM dossiers d"
+                " LEFT JOIN organes o ON o.uid = d.commission_fond"
+                f" WHERE d.uid IN ({','.join('?' * len(morceau))})", morceau).fetchall():
+            theme = corrections.get(uid) or theme_de_commission(libelle)
+            if theme:
+                resultat[uid] = theme
+    for uid in uids:  # une correction vaut aussi pour un dossier absent de la base
+        if uid not in resultat and uid in corrections:
+            resultat[uid] = corrections[uid]
+    return resultat

@@ -307,6 +307,22 @@ def charger_questions(db, chemins):
 
 # ------------------------------------------------------- dossiers et documents
 
+def _actes(conteneur):
+    """Parcourt l'arbre des actes législatifs d'un dossier, dans l'ordre du document."""
+    for acte in liste(sous(conteneur, "acteLegislatif")):
+        yield acte
+        yield from _actes(acte.get("actesLegislatifs"))
+
+
+def _commission_fond(dossier):
+    """Commission de l'Assemblée saisie au fond, lors de la première lecture qui en a eu une."""
+    for acte in _actes(dossier.get("actesLegislatifs")):
+        code = val(acte.get("codeActe")) or ""
+        if code.startswith("AN") and code.endswith("-COM-FOND-SAISIE"):
+            return val(acte.get("organeRef"))
+    return None
+
+
 def charger_dossiers(db, chemins):
     for table in ("dossiers", "documents", "documents_signataires"):
         db.execute(f"DELETE FROM {table}")
@@ -314,10 +330,11 @@ def charger_dossiers(db, chemins):
         for _, contenu in fichiers_json(chemin, "/dossierParlementaire/"):
             d = contenu["dossierParlementaire"]
             db.execute(
-                "INSERT OR REPLACE INTO dossiers VALUES (?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO dossiers (uid, type, legislature, titre, chemin,"
+                " procedure, commission_fond) VALUES (?,?,?,?,?,?,?)",
                 (d["uid"], d.get("@xsi:type"), val(d.get("legislature")),
                  lire(d, "titreDossier", "titre"), lire(d, "titreDossier", "titreChemin"),
-                 lire(d, "procedureParlementaire", "libelle")))
+                 lire(d, "procedureParlementaire", "libelle"), _commission_fond(d)))
         for _, contenu in fichiers_json(chemin, "/document/"):
             d = contenu["document"]
             uid = d["uid"]
