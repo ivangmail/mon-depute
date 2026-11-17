@@ -1,6 +1,6 @@
 # Thèmes fixés à la main, quand la commission saisie au fond ne suffit pas :
 # textes confiés à une commission spéciale, ou classement manifestement trompeur.
-# Une ligne par texte : identifiant du dossier ; thème (l'un des huit libellés de
+# Une ligne par texte : identifiant du dossier ; thème (l'un des libellés de THEMES dans
 # collecte/themes.py) ; motif. Les lignes qui commencent par # sont ignorées.
 # Classements validés par l'éditeur du site le 17/11/2026.
 dossier;theme;motif
