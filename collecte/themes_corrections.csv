@@ -2,7 +2,7 @@
 # textes confiés à une commission spéciale, ou classement manifestement trompeur.
 # Une ligne par texte : identifiant du dossier ; thème (l'un des huit libellés de
 # collecte/themes.py) ; motif. Les lignes qui commencent par # sont ignorées.
-# Les lignes ci-dessous sont des propositions à valider.
+# Classements validés par l'éditeur du site le 17/11/2026.
 dossier;theme;motif
 DLR5L17N54776;Institutions, justice et sécurité;Commission spéciale : texte sur les violences sexuelles et sexistes (droit pénal)
 DLR5L17N54777;Institutions, justice et sécurité;Commission spéciale : loi organique sur l'autorité judiciaire
