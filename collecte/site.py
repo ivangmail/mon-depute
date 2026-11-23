@@ -257,10 +257,14 @@ def methodologie(db):
 
 <h2 id="loyaute">Votes conformes à la ligne du groupe</h2>
 <p><b>Ligne d’un groupe sur un scrutin :</b> la position (pour, contre ou abstention) la plus
- fréquente parmi les membres du groupe qui ont voté. En cas d’égalité entre deux positions,
- le groupe n’a pas de ligne sur ce scrutin et celui-ci est écarté.</p>
+ fréquente parmi les membres du groupe qui ont voté, à condition qu’elle réunisse plus de
+ {int(indicateurs.SEUIL_LIGNE * 100)} % de leurs voix. En dessous, le groupe est partagé :
+ il n’a pas de ligne sur ce scrutin, qui est écarté. Un vote différent de la majorité d’un
+ groupe presque partagé n’est donc pas présenté comme un vote contre son groupe.</p>
 <p><b>Calcul :</b> nombre de votes du député identiques à la ligne de son groupe, divisé par le
  nombre de ses votes exprimés sur des scrutins où son groupe avait une ligne.</p>
+<p>D’autres sites, comme Datan, retiennent la simple majorité du groupe : leurs chiffres peuvent
+ donc différer des nôtres.</p>
 <ul>
 <li>Le vote est comparé au groupe auquel le député appartenait le jour du scrutin, tel que
  l’Assemblée le publie pour chaque vote. Un changement de groupe ne fausse donc pas le calcul.</li>

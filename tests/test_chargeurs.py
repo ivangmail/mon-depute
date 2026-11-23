@@ -238,6 +238,23 @@ class Indicateurs(unittest.TestCase):
         self.assertEqual(lignes[("S2", "G1")], "contre")
         self.assertNotIn(("S4", "G1"), lignes)  # un pour, un contre : pas de ligne
 
+    def test_ligne_nette_au_dela_de_60_pour_cent(self):
+        # S5 : trois pour, deux contre dans le groupe, soit 60 % tout juste : groupe partagé,
+        # le vote contre de PA2 n'est pas compté comme un vote contre sa ligne.
+        self.db.execute("INSERT INTO scrutins (uid, numero, date, type_vote, sort, titre)"
+                        " VALUES ('S5', 5, '2025-07-13', 'scrutin public ordinaire', 'adopté', 'x')")
+        self.db.executemany("INSERT INTO votes VALUES ('S5', ?, 'G1', ?, 0)", [
+            ("PA1", "pour"), ("PA3", "pour"), ("PX1", "pour"), ("PA2", "contre"),
+            ("PX2", "contre")])
+        with self.db:
+            indicateurs.calculer(self.db)
+        nettes = dict(((l[0], l[1]), (l[2], l[3])) for l in self.db.execute(
+            "SELECT scrutin_uid, groupe_uid, position, nette FROM lignes_groupe"))
+        self.assertEqual(nettes[("S5", "G1")], ("pour", 0))
+        self.assertEqual(nettes[("S2", "G1")], ("contre", 1))  # deux sur trois : 67 %
+        self.assertEqual((self.ligne("PA2")["votes_comparables"],
+                          self.ligne("PA2")["votes_conformes"]), (2, 2))
+
     def test_loyaute(self):
         # PA3 a voté pour quand son groupe votait contre ; S4 est écarté pour tous.
         self.assertEqual((self.ligne("PA3")["votes_comparables"],

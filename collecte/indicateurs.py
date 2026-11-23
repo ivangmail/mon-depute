@@ -15,6 +15,10 @@ SOLENNEL = "scrutin public solennel"
 MIN_SOLENNELS = 5
 MIN_COMPARABLES = 20
 MIN_REUNIONS = 10
+# Un groupe n'a une ligne nette sur un scrutin que si sa position la plus fréquente
+# réunit plus de cette part de ses voix exprimées. En dessous, il est dit partagé, et
+# un vote différent n'est pas compté comme un vote contre sa ligne.
+SEUIL_LIGNE = 0.6
 
 SCHEMA = """
 DROP TABLE IF EXISTS lignes_groupe;
@@ -22,6 +26,7 @@ CREATE TABLE lignes_groupe (
     scrutin_uid TEXT NOT NULL,
     groupe_uid  TEXT NOT NULL,
     position    TEXT NOT NULL,
+    nette       INTEGER NOT NULL,   -- 1 si la position dépasse SEUIL_LIGNE des voix du groupe
     PRIMARY KEY (scrutin_uid, groupe_uid)
 ) WITHOUT ROWID;
 
@@ -85,6 +90,7 @@ def calculer(db, aujourdhui=None):
 
     # Ligne d'un groupe sur un scrutin : la position exprimée la plus fréquente
     # parmi ses membres ce jour-là. En cas d'égalité, le groupe n'a pas de ligne.
+    # Elle n'est « nette » que si elle réunit plus de SEUIL_LIGNE de ses voix.
     db.execute(f"""
         INSERT INTO lignes_groupe
         WITH decompte AS (
@@ -92,9 +98,11 @@ def calculer(db, aujourdhui=None):
             WHERE position IN {EXPRIMES} AND groupe_uid IS NOT NULL
             GROUP BY scrutin_uid, groupe_uid, position),
         classe AS (
-            SELECT *, max(n) OVER (PARTITION BY scrutin_uid, groupe_uid) AS maxi
+            SELECT *, max(n) OVER (PARTITION BY scrutin_uid, groupe_uid) AS maxi,
+                   sum(n) OVER (PARTITION BY scrutin_uid, groupe_uid) AS total
             FROM decompte)
-        SELECT scrutin_uid, groupe_uid, min(position) FROM classe WHERE n = maxi
+        SELECT scrutin_uid, groupe_uid, min(position), max(1.0 * n / total) > {SEUIL_LIGNE}
+        FROM classe WHERE n = maxi
         GROUP BY scrutin_uid, groupe_uid HAVING count(*) = 1""")
 
     # Scrutins tenus pendant que le député siégeait (un passage au gouvernement
@@ -120,10 +128,11 @@ def calculer(db, aujourdhui=None):
 
     # Loyauté : le vote est comparé à la ligne du groupe auquel le député
     # appartenait le jour du scrutin (l'Assemblée publie ce groupe vote par vote).
+    # Seuls comptent les scrutins où le groupe avait une ligne nette.
     _maj(db, ("votes_comparables", "votes_conformes"), f"""
         SELECT v.acteur_uid, count(*), sum(v.position = l.position)
         FROM votes v JOIN lignes_groupe l
-          ON l.scrutin_uid = v.scrutin_uid AND l.groupe_uid = v.groupe_uid
+          ON l.scrutin_uid = v.scrutin_uid AND l.groupe_uid = v.groupe_uid AND l.nette = 1
         JOIN organes o ON o.uid = v.groupe_uid
         WHERE v.position IN {EXPRIMES} AND coalesce(o.libelle_abrege, '') <> 'NI'
         GROUP BY v.acteur_uid""")

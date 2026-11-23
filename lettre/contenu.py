@@ -30,7 +30,7 @@ MOTION = "motion de censure"
 ECART_SERRE = 10
 # En dessous de cette part des suffrages exprimés du groupe, sa position majoritaire
 # n'est pas présentée comme une ligne : le groupe est dit partagé.
-SEUIL_LIGNE = 0.6
+SEUIL_LIGNE = indicateurs.SEUIL_LIGNE  # même règle que le site
 # Votes qui engagent un texte entier ou le Gouvernement : ils ouvrent la lettre.
 MAJEUR = f"""(s.type_vote IN ('{indicateurs.SOLENNEL}', '{MOTION}')
     OR replace(s.titre, '’', char(39)) LIKE 'l' || char(39) || 'ensemble%'
@@ -372,7 +372,8 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
           AND s.date >= :debut AND s.date < :fin""", bornes).fetchone()
     mediane_groupe, mediane_tous = medianes(db, debut, fin, d["groupe_uid"], scrutins)
     dissidents = db.execute(f"""
-        SELECT s.uid, v.groupe_uid, s.numero, s.date, s.titre, v.position, l.position AS ligne
+        SELECT s.uid, v.groupe_uid, s.numero, s.date, s.titre, v.position, l.position AS ligne,
+               l.nette
         FROM votes v JOIN lignes_groupe l
           ON l.scrutin_uid = v.scrutin_uid AND l.groupe_uid = v.groupe_uid
         JOIN scrutins s ON s.uid = v.scrutin_uid JOIN organes o ON o.uid = v.groupe_uid
@@ -484,12 +485,8 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
           AND substr(r.debut, 1, 10) < :fin""", bornes).fetchone()
 
     interventions = sum(s["n"] for s in sujets)
-    nets, partages = [], 0
-    for v in dissidents:
-        if position_du_groupe(_decompte_groupe(db, v["uid"], v["groupe_uid"]))[0]:
-            nets.append(dict(v))
-        else:
-            partages += 1
+    nets = [dict(v) for v in dissidents if v["nette"]]
+    partages = len(dissidents) - len(nets)
     chemins = site.adresses_fiches(site.lister_deputes(db))
     lettre = {
         "depute": f"{d['prenom']} {d['nom']}", "feminin": d["civilite"] == "Mme",

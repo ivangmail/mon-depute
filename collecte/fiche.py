@@ -89,7 +89,7 @@ def votes_dissidents(db, uid, limite=5):
         SELECT s.numero, s.date, s.titre, v.position, l.position AS ligne,
                o.libelle_abrege AS groupe
         FROM votes v JOIN lignes_groupe l
-          ON l.scrutin_uid = v.scrutin_uid AND l.groupe_uid = v.groupe_uid
+          ON l.scrutin_uid = v.scrutin_uid AND l.groupe_uid = v.groupe_uid AND l.nette = 1
         JOIN scrutins s ON s.uid = v.scrutin_uid
         JOIN organes o ON o.uid = v.groupe_uid
         WHERE v.acteur_uid = ? AND v.position IN {indicateurs.EXPRIMES}
@@ -366,7 +366,8 @@ def corps(db, uid, racine="", api_url=None):
 
 <h3>Ses votes contre la ligne de son groupe</h3>
 <p class="doux petit">{nb_dissidents} vote{'s' if nb_dissidents > 1 else ''} différent{'s' if nb_dissidents > 1 else ''}
- de la position majoritaire de son groupe, sur {i['votes_comparables']} comparables.
+ de la position de son groupe, quand celui-ci votait nettement dans un sens, sur
+ {i['votes_comparables']} comparables.
  Les scrutins solennels sont listés en premier.</p>
 {_tableau(["Date", "Son vote", "Son groupe", "Scrutin"],
           [(jour(v['date']), _position(v['position']),
