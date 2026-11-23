@@ -9,6 +9,9 @@ exemple.fr {
 
 	handle {
 		root * /srv/mon-depute/site
+		# Le site est régénéré chaque jour : le navigateur doit demander à chaque
+		# visite si la page a changé (réponse « inchangé » sinon, sans la renvoyer).
+		header Cache-Control "no-cache"
 		file_server
 	}
 
