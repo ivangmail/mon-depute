@@ -27,6 +27,13 @@ class Config:
     dossier_courriels: str = ""   # si renseigné, les e-mails sont écrits ici au lieu d'être envoyés
     derriere_proxy: bool = False  # vrai si un serveur frontal renseigne X-Forwarded-For
     contact: str = ""             # adresse publiée pour signaler une erreur dans une lettre
+    # Copie chiffrée de la base des abonnés hors du serveur (facultative).
+    s3_espace: str = ""           # nom de l'espace de stockage (« bucket »)
+    s3_region: str = "fr-par"
+    s3_hote: str = ""             # point d'accès ; par défaut s3.<région>.scw.cloud
+    s3_cle_acces: str = ""
+    s3_cle_secrete: str = ""
+    sauvegarde_phrase: str = ""   # phrase secrète de chiffrement des copies
 
     @property
     def origine(self):
@@ -48,6 +55,16 @@ def depuis_environnement(env=None):
     if not env.get("MD_SMTP_HOTE") and not env.get("MD_DOSSIER_COURRIELS"):
         raise ConfigurationInvalide(
             "Renseigner MD_SMTP_HOTE (envoi réel) ou MD_DOSSIER_COURRIELS (essais).")
+    espace = env.get("MD_S3_ESPACE", "").strip()
+    if espace:
+        manquantes = [n for n in ("MD_S3_CLE_ACCES", "MD_S3_CLE_SECRETE", "MD_SAUVEGARDE_PHRASE")
+                      if not env.get(n)]
+        if manquantes:
+            raise ConfigurationInvalide("Sauvegarde hors serveur : variables manquantes : "
+                                        + ", ".join(manquantes))
+        if len(env["MD_SAUVEGARDE_PHRASE"]) < 20:
+            raise ConfigurationInvalide("MD_SAUVEGARDE_PHRASE doit contenir au moins 20 caractères.")
+    region = env.get("MD_S3_REGION", "").strip() or "fr-par"
     return Config(
         secret=secret.encode(),
         site_url=env["MD_SITE_URL"].rstrip("/"),
@@ -62,4 +79,9 @@ def depuis_environnement(env=None):
         dossier_courriels=env.get("MD_DOSSIER_COURRIELS", ""),
         derriere_proxy=env.get("MD_DERRIERE_PROXY", "") == "1",
         contact=env.get("MD_CONTACT", "").strip(),
+        s3_espace=espace, s3_region=region,
+        s3_hote=env.get("MD_S3_HOTE", "").strip() or f"s3.{region}.scw.cloud",
+        s3_cle_acces=env.get("MD_S3_CLE_ACCES", "").strip(),
+        s3_cle_secrete=env.get("MD_S3_CLE_SECRETE", "").strip(),
+        sauvegarde_phrase=env.get("MD_SAUVEGARDE_PHRASE", ""),
     )

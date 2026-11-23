@@ -8,7 +8,9 @@ WorkingDirectory=/srv/mon-depute/code
 EnvironmentFile=/etc/mon-depute.env
 # La base des abonnés est copiée avant toute chose. La collecte régénère le
 # site ; les lettres ne partent que si elle a réussi.
-ExecStart=/usr/bin/python3 -m lettre sauvegarder /srv/mon-depute/donnees/sauvegardes
+# Le « - » : un échec de la copie hors serveur (l'éditeur est alors prévenu par
+# e-mail) ne doit pas bloquer la collecte ni les envois.
+ExecStart=-/usr/bin/python3 -m lettre sauvegarder /srv/mon-depute/donnees/sauvegardes
 ExecStart=/usr/bin/python3 -m collecte --donnees /srv/mon-depute/donnees --site /srv/mon-depute/site maj
 ExecStart=/usr/bin/python3 -m lettre purger
 ExecStart=/usr/bin/python3 -m lettre envoyer

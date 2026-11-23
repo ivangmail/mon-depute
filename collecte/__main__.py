@@ -86,7 +86,8 @@ def publier(db, args):
     site.generer(db, args.site, journal=lambda m: print(f"[site] {m}"),
                  api_url=args.api or os.environ.get("MD_API_URL"),
                  editeur=os.environ.get("MD_EDITEUR"), contact=os.environ.get("MD_CONTACT"),
-                 hebergeur=os.environ.get("MD_HEBERGEUR"))
+                 hebergeur=os.environ.get("MD_HEBERGEUR"),
+                 sauvegarde_distante=bool(os.environ.get("MD_S3_ESPACE", "").strip()))
     print(f"[site] terminé en {time.time() - debut:.0f} s")
 
 

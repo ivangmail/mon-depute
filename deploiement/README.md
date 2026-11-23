@@ -101,11 +101,57 @@ données de l'Assemblée.
 
 La tâche quotidienne en écrit une copie datée et compressée dans
 `/srv/mon-depute/donnees/sauvegardes`, et garde les 14 dernières. Cette copie
-protège d'une erreur de manipulation ou d'une base abîmée, **pas de la perte
-du serveur** : pour cela, il faut en plus envoyer ces fichiers ailleurs (un
-espace de stockage objet, par exemple), ce qui n'est pas encore en place.
+protège d'une erreur de manipulation ou d'une base abîmée, pas de la perte du
+serveur.
 
-Pour restaurer une copie, service arrêté :
+### Copie hors du serveur
+
+Si `MD_S3_ESPACE` est renseigné, la même copie est aussi chiffrée (openssl,
+AES-256, clé dérivée de `MD_SAUVEGARDE_PHRASE`) et déposée dans un espace
+Scaleway Object Storage, sous `abonnes/`. Elle est relue et déchiffrée pour
+vérification, puis seules les 14 dernières sont gardées. En cas d'échec,
+l'adresse `MD_CONTACT` reçoit un e-mail ; la collecte et les envois continuent.
+
+Mise en place :
+
+1. Console Scaleway, Object Storage : créer un espace (bucket) **privé**, dans
+   une autre région que le serveur (par exemple Paris, `fr-par`).
+2. IAM : créer une application dédiée, avec une politique limitée au projet
+   et aux ensembles de permissions `ObjectStorageObjectsRead`,
+   `ObjectStorageObjectsWrite` et `ObjectStorageObjectsDelete`. Lui générer une
+   clé d'API, avec ce projet comme projet par défaut pour Object Storage.
+3. Générer la phrase secrète, la ranger dans un gestionnaire de mots de passe,
+   puis renseigner les variables `MD_S3_*` et `MD_SAUVEGARDE_PHRASE` dans
+   `/etc/mon-depute.env`.
+4. Essayer, puis vérifier qu'une copie se restaure :
+
+```bash
+runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre sauvegarder /srv/mon-depute/donnees/sauvegardes && python3 -m lettre sauvegardes && python3 -m lettre restaurer /tmp/essai-restauration.sqlite'
+rm /tmp/essai-restauration.sqlite
+```
+
+Pour restaurer depuis l'espace de stockage (serveur perdu, ou copie locale
+abîmée), sur un serveur réinstallé avec le même `/etc/mon-depute.env`, service
+arrêté. La commande refuse d'écraser un fichier : mettre d'abord de côté une
+éventuelle base existante.
+
+```bash
+systemctl stop mon-depute-lettre.service
+mv /srv/mon-depute/donnees/abonnes.sqlite /srv/mon-depute/donnees/abonnes.sqlite.ancienne
+runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre restaurer /srv/mon-depute/donnees/abonnes.sqlite'
+systemctl start mon-depute-lettre.service
+```
+
+Sans ce code, une copie téléchargée depuis la console se déchiffre avec
+openssl seul (la phrase secrète est demandée) :
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in abonnes-AAAAMMJJ-HHMMSS.sqlite.gz.enc -out abonnes.sqlite.gz
+```
+
+### Restaurer une copie locale
+
+Service arrêté :
 
 ```bash
 systemctl stop mon-depute-lettre.service

@@ -479,12 +479,15 @@ def mentions_legales(editeur, contact, hebergeur):
 """
 
 
-def confidentialite(api_url, editeur=None, contact=None):
+def confidentialite(api_url, editeur=None, contact=None, sauvegarde_distante=False):
     responsable = ""
     if editeur:
         responsable = (f"<p>Le responsable du traitement est {escape(editeur)}."
                        + (f" Pour exercer vos droits, écrivez à {escape(contact)}." if contact else "")
                        + "</p>")
+    distante = (" et, chiffrées, dans un espace de stockage de l’hébergeur distinct du serveur,"
+                " pour ne pas perdre les abonnements si celui-ci disparaissait. L’hébergeur ne"
+                " peut pas les lire") if sauvegarde_distante else ""
     lettre = """
 <h2>La lettre d’information</h2>
 <p>Si vous vous abonnez à l’activité d’un député, sont conservées : votre adresse e-mail, la
@@ -497,13 +500,16 @@ def confidentialite(api_url, editeur=None, contact=None):
  confirmant par e-mail.</li>
 <li><b>Durée :</b> jusqu’à votre désabonnement. Une inscription non confirmée est effacée
  sous 7 jours.</li>
-<li><b>Désabonnement :</b> en un clic depuis chaque lettre. Votre adresse est alors effacée,
- sans conservation.</li>
+<li><b>Désabonnement :</b> en un clic depuis chaque lettre. Votre adresse est alors effacée de
+ la base ; elle disparaît des copies de sauvegarde au plus tard 14 jours après.</li>
+<li><b>Sauvegarde :</b> une copie de la base est faite chaque jour, et seules les 14 dernières
+ sont gardées, sur le serveur{distante}.</li>
 <li><b>Envoi :</b> les lettres sont acheminées par un prestataire d’envoi d’e-mails, qui reçoit
  votre adresse pour cette seule opération.</li>
 </ul>
 <p>Vous disposez d’un droit d’accès, de rectification et d’effacement de ces données, et du droit
- d’introduire une réclamation auprès de la CNIL.</p>""" + responsable if api_url else ""
+ d’introduire une réclamation auprès de la CNIL.</p>""".replace("{distante}", distante) \
+        + responsable if api_url else ""
     return f"""
 <h1>Confidentialité</h1>
 <p class="portrait">Ce site se consulte sans compte et ne dépose aucun cookie.</p>
@@ -527,7 +533,7 @@ def confidentialite(api_url, editeur=None, contact=None):
 
 
 def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None,
-            hebergeur=None):
+            hebergeur=None, sauvegarde_distante=False):
     """editeur : nom de l'éditeur du site. S'il est fourni, la page Mentions
     légales est générée et liée depuis le pied de chaque page."""
     api_url = (api_url or "").rstrip("/") or None
@@ -549,7 +555,8 @@ def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None
             ecrire(script, f.read())
     ecrire("confidentialite.html", page(
         f"Confidentialité · {NOM_SITE}", "Ce que ce site reçoit, conserve, et ne conserve pas.",
-        confidentialite(api_url, editeur, contact), "", fraicheur, mentions))
+        confidentialite(api_url, editeur, contact, sauvegarde_distante), "", fraicheur,
+        mentions))
     if mentions:
         ecrire("mentions-legales.html", page(
             f"Mentions légales · {NOM_SITE}", "Éditeur, hébergeur et sources du site.",
