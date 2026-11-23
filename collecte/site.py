@@ -344,8 +344,10 @@ def methodologie(db):
  constitutionnel, promulgation, retrait). Elle est décrite telle quelle, sans en déduire la
  suite de la procédure. Un texte est dit « adopté définitivement » après un vote conforme des
  deux assemblées, l’adoption du texte de la commission mixte paritaire par chacune d’elles,
- ou une lecture définitive à l’Assemblée. Ces étapes sont publiées avec quelques jours de
- retard.</li>
+ ou une lecture définitive à l’Assemblée. Un texte sur lequel le Gouvernement a engagé sa
+ responsabilité (article 49, alinéa 3, de la Constitution) est dit « considéré comme adopté »,
+ puisqu’il n’y a pas eu de vote sur le texte. L’état affiché est celui connu le jour où la
+ lettre est composée ; ces étapes sont publiées avec quelques jours de retard.</li>
 </ul>
 
 <h2 id="themes">Les thèmes</h2>

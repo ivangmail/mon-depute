@@ -15,7 +15,12 @@ TYPES = ("Decision_Type", "Promulgation_Type", "ConclusionEtapeCC_Type", "Retrai
          "DepotInitiative_Type", "DepotInitiativeNavette_Type", "DiscussionSeancePublique_Type")
 
 ARTICLE_45 = re.compile(r",? dans les conditions prévues à l'article 45, alinéa 3, de la Constitution")
-MASCULIN = (("adoptée", "adopté"), ("modifiée", "modifié"), ("rejetée", "rejeté"))
+# Texte « considéré comme adopté » (ou rejeté, si une motion de censure est votée) après
+# l'engagement de la responsabilité du Gouvernement : il n'y a pas de vote sur le texte.
+ARTICLE_49_3 = re.compile(r"\s*par l'Assemblée nationale en application de l'article 49, "
+                          r"alinéa 3,? de la Constitution", re.IGNORECASE)
+MASCULIN = (("adoptée", "adopté"), ("modifiée", "modifié"), ("rejetée", "rejeté"),
+            ("considérée", "considéré"), ("définitive", "définitif"))
 
 
 def _chambre(prefixe):
@@ -37,14 +42,14 @@ def _lecture(prefixe):
 
 
 def _statut(etape):
-    texte = ARTICLE_45.sub("", (etape.get("statut") or "").strip()).lower()
+    texte = ARTICLE_49_3.sub("", ARTICLE_45.sub("", (etape.get("statut") or "").strip())).lower()
     for feminin, masculin in MASCULIN:
         texte = re.sub(rf"\b{feminin}\b", masculin, texte)
     return texte
 
 
 def _adopte(etape):
-    return _statut(etape).startswith("adopté")
+    return _statut(etape).startswith(("adopté", "considéré comme adopté"))
 
 
 def _decision(etape):
@@ -59,7 +64,13 @@ def _decision(etape):
     else:
         prefixe = code.split("-")[0]
         lecture = _lecture(prefixe)
-    if statut.startswith("considéré"):
+    if statut.startswith(("considéré comme adopté", "considéré comme rejeté")):
+        sens = "adopté" if "adopté" in statut else "rejeté"
+        return (f"Texte considéré comme {sens} par {_chambre(prefixe)} le {date}"
+                + (f", {lecture}" if lecture else "") + ", sans vote sur le texte, le Gouvernement"
+                " ayant engagé sa responsabilité (article 49, alinéa 3, de la Constitution)")
+    if statut.startswith("considéré comme définitif"):
+        # Résolution européenne (article 151-7 du Règlement de l'Assemblée).
         return f"Texte considéré comme définitif par {_chambre(prefixe)} le {date}"
     if statut.split(" ")[0] in ("adopté", "modifié", "rejeté"):
         return f"Texte {statut} par {_chambre(prefixe)} le {date}" + (f", {lecture}" if lecture
@@ -73,7 +84,7 @@ def _definitif(decisions):
     dates = []
     for e in decisions:
         code, statut = e["code"], _statut(e)
-        if not statut.startswith("adopté"):
+        if not _adopte(e):
             continue
         prefixe = code.split("-")[0]
         if prefixe in ("ANLDEF", "SNLDEF"):

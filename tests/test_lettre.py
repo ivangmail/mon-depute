@@ -443,6 +443,7 @@ class Lettre(unittest.TestCase):
         self.assertIn("Ses votes par thème : Institutions, justice et sécurité (1).", texte)
         # Où en est le texte : une seule ligne par dossier, même s'il a plusieurs votes.
         self.assertIn("OÙ EN SONT CES TEXTES\n", texte)
+        self.assertRegex(texte, r"Dernière étape connue de chaque texte, au \d\d/\d\d/\d{4} :")
         self.assertEqual(texte.count("— Projet de loi eau : Texte adopté"), 1)
         self.assertIn("- Institutions, justice et sécurité — Projet de loi eau : Texte adopté par "
                       "l'Assemblée nationale le 11/07/2025, en 1re lecture, puis transmis au Sénat"

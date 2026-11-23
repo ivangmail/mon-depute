@@ -668,3 +668,50 @@ class Etapes(unittest.TestCase):
             self.assertEqual(etapes.pour_dossiers(db, ["DL1", "DL2"]), {
                 "DL1": "Texte adopté par l'Assemblée nationale le 01/02/2026, en 1re lecture"})
             db.close()
+
+
+class Etapes493(unittest.TestCase):
+    """Textes adoptés sans vote, le Gouvernement ayant engagé sa responsabilité."""
+    ADOPTE = ("considéré comme adopté par l'Assemblée nationale en application de l'article 49, "
+              "alinéa 3 de la Constitution")
+    REJETE = ADOPTE.replace("adopté", "rejeté")
+    SUITE = ", sans vote sur le texte, le Gouvernement ayant engagé sa responsabilité " \
+            "(article 49, alinéa 3, de la Constitution)"
+
+    def test_premiere_lecture(self):
+        self.assertEqual(etapes.decrire([etape("AN1-DEBATS-DEC", "2026-01-10", self.ADOPTE),
+                                         etape("SN1-DEPOT", "2026-01-12")]),
+                         "Texte considéré comme adopté par l'Assemblée nationale le 10/01/2026, "
+                         "en 1re lecture" + self.SUITE + ", puis transmis au Sénat le 12/01/2026")
+
+    def test_nouvelle_lecture_n_est_pas_definitive(self):
+        # Chemin suivi par le budget 2026.
+        suite = [etape("AN1-DEBATS-DEC", "2025-11-21", "rejeté"),
+                 etape("SN1-DEBATS-DEC", "2025-12-15", "modifié"),
+                 etape("CMP-DEC", "2026-01-02", "Désaccord"),
+                 etape("ANNLEC-DEBATS-DEC", "2026-01-27", self.ADOPTE)]
+        self.assertEqual(etapes.decrire(suite), "Texte considéré comme adopté par l'Assemblée "
+                         "nationale le 27/01/2026, en nouvelle lecture" + self.SUITE)
+        suite.append(etape("ANLDEF-DEBATS-DEC", "2026-02-02", self.ADOPTE))
+        self.assertEqual(etapes.decrire(suite), "Texte adopté définitivement par le Parlement le "
+                                                "02/02/2026, pas encore promulgué")
+
+    def test_texte_de_cmp(self):
+        cmp = [etape("CMP-DEC", "2025-01-31", "Accord"),
+               etape("CMP-DEBATS-AN-DEC", "2025-02-05", self.ADOPTE)]
+        self.assertTrue(etapes.decrire(cmp).startswith(
+            "Texte considéré comme adopté par l'Assemblée nationale le 05/02/2025, sur le texte "
+            "de la commission mixte paritaire, sans vote"))
+        cmp.append(etape("CMP-DEBATS-SN-DEC", "2025-02-06", "adopté"))
+        self.assertEqual(etapes.decrire(cmp), "Texte adopté définitivement par le Parlement le "
+                                              "06/02/2025, pas encore promulgué")
+        # Motion de censure adoptée : le texte est considéré comme rejeté.
+        self.assertTrue(etapes.decrire([etape("CMP-DEBATS-AN-DEC", "2024-12-04", self.REJETE)])
+                        .startswith("Texte considéré comme rejeté par l'Assemblée nationale le "
+                                    "04/12/2024"))
+
+    def test_resolution_europeenne(self):
+        self.assertEqual(etapes.decrire([etape(
+            "ANLUNI-DEBATS-DEC", "2026-03-01",
+            "considérée comme définitive en application de l'article 151-7 du Règlement")]),
+            "Texte considéré comme définitif par l'Assemblée nationale le 01/03/2026")

@@ -336,6 +336,8 @@ def charger_dossiers(db, chemins):
                 (d["uid"], d.get("@xsi:type"), val(d.get("legislature")),
                  lire(d, "titreDossier", "titre"), lire(d, "titreDossier", "titreChemin"),
                  lire(d, "procedureParlementaire", "libelle"), _commission_fond(d)))
+            # Un dossier présent deux fois dans l'archive : sa dernière version l'emporte.
+            db.execute("DELETE FROM etapes WHERE dossier_uid = ?", (d["uid"],))
             for ordre, acte in enumerate(_actes(d.get("actesLegislatifs"))):
                 if acte.get("@xsi:type") in etapes.TYPES and val(acte.get("dateActe")):
                     db.execute("INSERT INTO etapes VALUES (?,?,?,?,?,?)", (

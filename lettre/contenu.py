@@ -363,9 +363,9 @@ def composer(db, departement, circo, debut, fin):
     suivis = [m["dossier_uid"] for m in majeurs if m["dossier_uid"] and not m["censure"]] \
         + [t["dossier_uid"] for t in scrutins_par_texte if t["dossier_uid"]]
     etats = etapes.pour_dossiers(db, suivis)
-    titres_dossiers = {}
-    for i in range(0, len(suivis), 500):
-        morceau = sorted(set(suivis))[i:i + 500]
+    titres_dossiers, uniques = {}, sorted(set(suivis))
+    for i in range(0, len(uniques), 500):
+        morceau = uniques[i:i + 500]
         titres_dossiers.update(dict(tuple(r) for r in db.execute(
             f"SELECT uid, titre FROM dossiers WHERE uid IN ({','.join('?' * len(morceau))})",
             morceau).fetchall()))
@@ -447,6 +447,8 @@ def composer(db, departement, circo, debut, fin):
         "votes_par_theme": sorted(votes_par_theme.items(), key=lambda t: (-t[1], t[0])),
         "commission_votes": commission_votes,
         "etats": etats, "titres_dossiers": titres_dossiers,
+        # Les états sont ceux connus le jour où la lettre est composée, pas à la fin de la période.
+        "date_etats": datetime.date.today().isoformat(),
         "reunions": [dict(r) for r in reunions],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
@@ -561,7 +563,8 @@ def rubriques(l):
         sorties.append(("Où en sont ces textes", [
             "Un vote de l'Assemblée n'est souvent qu'une étape : un texte ne devient loi "
             "qu'après son adoption définitive par le Parlement, puis sa promulgation. "
-            "Dernière étape connue de chaque texte :"],
+            "Dernière étape connue de chaque texte"
+            + (f", au {jour(l['date_etats'])}" if l.get("date_etats") else "") + " :"],
             elements))
 
     partages = l.get("dissidents_partages") or 0
