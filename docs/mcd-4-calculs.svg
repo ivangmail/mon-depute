@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="880" viewBox="0 0 1700 880" font-family="Helvetica, Arial, sans-serif" role="img" aria-label="Vue 4 : données calculées chaque jour et compléments">
+<rect width="1700" height="880" fill="#fafaf7"/>
+<text x="24" y="38" font-size="22" font-weight="bold" fill="#1c1f26">Vue 4 : données calculées chaque jour et compléments</text>
+<line x1="540" y1="230" x2="315" y2="230" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="540" y1="230" x2="702" y2="230" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="540" y1="640" x2="775" y2="640" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="540" y1="640" x2="342" y2="640" stroke="#1c1f26" stroke-width="1.4"/>
+<ellipse cx="540" cy="230" rx="58" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="540" y="235" font-size="14" text-anchor="middle" fill="#1c1f26">mesure</text>
+<ellipse cx="540" cy="640" rx="108" ry="34" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="540" y="630" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26">est le repère de</text>
+<line x1="465" y1="638" x2="615" y2="638" stroke="#5b6270"/>
+<text x="540" y="654" font-size="13" text-anchor="middle" fill="#1c1f26">« tous » si aucun groupe</text>
+<rect x="145" y="131" width="170" height="198" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="145" y1="159" x2="315" y2="159" stroke="#1c1f26"/>
+<text x="230" y="151" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">ACTEUR</text>
+<text x="157" y="175" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="157" y="194" font-size="14" fill="#1c1f26">civilité</text>
+<text x="157" y="213" font-size="14" fill="#1c1f26">prénom</text>
+<text x="157" y="232" font-size="14" fill="#1c1f26">nom</text>
+<text x="157" y="251" font-size="14" fill="#1c1f26">date de naissance</text>
+<text x="157" y="270" font-size="14" fill="#1c1f26">lieu de naissance</text>
+<text x="157" y="289" font-size="14" fill="#1c1f26">profession</text>
+<text x="157" y="308" font-size="14" fill="#1c1f26">lien HATVP</text>
+<rect x="702" y="122" width="317" height="217" rx="3" fill="#ffffff" stroke="#8a8f98" stroke-width="1.8" stroke-dasharray="7 4"/>
+<line x1="702" y1="150" x2="1018" y2="150" stroke="#8a8f98"/>
+<text x="860" y="142" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">INDICATEURS</text>
+<text x="714" y="166" font-size="14" fill="#1c1f26">scrutins éligibles, exprimés</text>
+<text x="714" y="184" font-size="14" fill="#1c1f26">scrutins solennels éligibles, exprimés</text>
+<text x="714" y="204" font-size="14" fill="#1c1f26">votes pour, contre, abstention</text>
+<text x="714" y="222" font-size="14" fill="#1c1f26">votes comparables, conformes</text>
+<text x="714" y="242" font-size="14" fill="#1c1f26">présences, absences en commission</text>
+<text x="714" y="260" font-size="14" fill="#1c1f26">questions par type</text>
+<text x="714" y="280" font-size="14" fill="#1c1f26">interventions longues, courtes</text>
+<text x="714" y="298" font-size="14" fill="#1c1f26">amendements déposés, adoptés, cosignés</text>
+<text x="714" y="318" font-size="14" fill="#1c1f26">propositions de loi</text>
+<rect x="118" y="541" width="224" height="198" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="118" y1="569" x2="342" y2="569" stroke="#1c1f26"/>
+<text x="230" y="561" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">ORGANE</text>
+<text x="130" y="585" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="130" y="604" font-size="14" fill="#1c1f26">type (groupe, commission…)</text>
+<text x="130" y="623" font-size="14" fill="#1c1f26">libellé</text>
+<text x="130" y="642" font-size="14" fill="#1c1f26">libellé abrégé</text>
+<text x="130" y="661" font-size="14" fill="#1c1f26">législature</text>
+<text x="130" y="680" font-size="14" fill="#1c1f26">date de début</text>
+<text x="130" y="699" font-size="14" fill="#1c1f26">date de fin</text>
+<text x="130" y="718" font-size="14" fill="#1c1f26">couleur</text>
+<rect x="775" y="588" width="170" height="103" rx="3" fill="#ffffff" stroke="#8a8f98" stroke-width="1.8" stroke-dasharray="7 4"/>
+<line x1="775" y1="616" x2="945" y2="616" stroke="#8a8f98"/>
+<text x="860" y="608" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">RÉFÉRENCE</text>
+<text x="787" y="632" font-size="14" fill="#1c1f26" text-decoration="underline">indicateur</text>
+<text x="787" y="652" font-size="14" fill="#1c1f26">médiane</text>
+<text x="787" y="670" font-size="14" fill="#1c1f26">effectif</text>
+<rect x="1355" y="110" width="170" height="179" rx="3" fill="#ffffff" stroke="#8a8f98" stroke-width="1.8" stroke-dasharray="7 4"/>
+<line x1="1355" y1="138" x2="1525" y2="138" stroke="#8a8f98"/>
+<text x="1440" y="130" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">IMPORT</text>
+<text x="1367" y="154" font-size="14" fill="#1c1f26" text-decoration="underline">fichier</text>
+<text x="1367" y="174" font-size="14" fill="#1c1f26">jeu</text>
+<text x="1367" y="192" font-size="14" fill="#1c1f26">url</text>
+<text x="1367" y="212" font-size="14" fill="#1c1f26">etag</text>
+<text x="1367" y="230" font-size="14" fill="#1c1f26">date de mise à jour</text>
+<text x="1367" y="250" font-size="14" fill="#1c1f26">téléchargé le</text>
+<text x="1367" y="268" font-size="14" fill="#1c1f26">chargé le</text>
+<rect x="1215" y="570" width="370" height="141" rx="3" fill="#ffffff" stroke="#8a8f98" stroke-width="1.8" stroke-dasharray="7 4"/>
+<line x1="1215" y1="598" x2="1585" y2="598" stroke="#8a8f98"/>
+<text x="1400" y="590" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">DOSSIER (compléments)</text>
+<text x="1227" y="614" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="1227" y="632" font-size="14" fill="#1c1f26">commission saisie au fond</text>
+<text x="1227" y="652" font-size="14" fill="#1c1f26">thème (calculé)</text>
+<text x="1227" y="670" font-size="14" fill="#1c1f26">thème corrigé (fichier)</text>
+<text x="1227" y="690" font-size="14" fill="#1c1f26">intitulé en langage courant (fichier, validé)</text>
+<text x="24" y="810" font-size="14" fill="#5b6270">Également recalculées chaque jour : la ligne de chaque groupe sur chaque scrutin (vue 2), et la liste des réunions de commission</text>
+<text x="24" y="828" font-size="14" fill="#5b6270">retenues pour la présence (réunions confirmées, passées, avec au moins un présent). IMPORT trace les fichiers téléchargés ; il n&#x27;est lié à rien.</text>
+<text x="24" y="864" font-size="13" fill="#5b6270">Rectangle : entité (identifiant souligné). Ellipse : association, avec ses attributs. Cardinalités min,max côté entité ; (1,1) : identification relative. Pointillés : donnée calculée, base séparée ou rappel d&#x27;une autre vue.</text>
+<text x="341" y="248" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="676" y="222" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">(1,1)</text>
+<text x="749" y="632" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="368" y="658" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+</svg>

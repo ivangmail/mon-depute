@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1560" viewBox="0 0 1800 1560" font-family="Helvetica, Arial, sans-serif" role="img" aria-label="Vue 2 : votes, textes et amendements">
+<rect width="1800" height="1560" fill="#fafaf7"/>
+<text x="24" y="38" font-size="22" font-weight="bold" fill="#1c1f26">Vue 2 : votes, textes et amendements</text>
+<line x1="580" y1="200" x2="335" y2="222" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="580" y1="200" x2="815" y2="200" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="200" x2="1435" y2="200" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="200" x2="985" y2="200" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="900" y1="500" x2="900" y2="270" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="900" y1="500" x2="900" y2="721" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="500" x2="1442" y2="740" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="500" x2="973" y2="270" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="420" y1="560" x2="321" y2="367" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="420" y1="560" x2="315" y2="721" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="420" y1="560" x2="810" y2="721" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="660" y1="420" x2="335" y2="269" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="660" y1="420" x2="990" y2="721" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="1080" x2="335" y2="843" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1210" y1="1080" x2="1435" y2="891" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="540" y1="1160" x2="290" y2="919" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="540" y1="1160" x2="815" y2="1313" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="250" y1="1330" x2="210" y2="919" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="250" y1="1330" x2="815" y2="1356" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1340" y1="1360" x2="985" y2="1360" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="1340" y1="1360" x2="1493" y2="900" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="860" y1="1090" x2="884" y2="1252" stroke="#1c1f26" stroke-width="1.4"/>
+<line x1="860" y1="1090" x2="885" y2="919" stroke="#1c1f26" stroke-width="1.4"/>
+<ellipse cx="580" cy="200" rx="59" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="580" y="205" font-size="14" text-anchor="middle" fill="#1c1f26">porte sur</text>
+<ellipse cx="1210" cy="200" rx="58" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="1210" y="205" font-size="14" text-anchor="middle" fill="#1c1f26">jalonne</text>
+<ellipse cx="900" cy="500" rx="113" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="900" y="505" font-size="14" text-anchor="middle" fill="#1c1f26">est examiné au fond par</text>
+<ellipse cx="1210" cy="500" rx="78" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="1210" y="505" font-size="14" text-anchor="middle" fill="#1c1f26">est rattaché à</text>
+<ellipse cx="420" cy="560" rx="72" ry="46" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="420" y="542" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26">VOTE</text>
+<line x1="370" y1="550" x2="470" y2="550" stroke="#5b6270"/>
+<text x="420" y="566" font-size="13" text-anchor="middle" fill="#1c1f26">position</text>
+<text x="420" y="582" font-size="13" text-anchor="middle" fill="#1c1f26">par délégation</text>
+<ellipse cx="660" cy="420" rx="96" ry="46" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="660" y="402" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26">LIGNE DU GROUPE</text>
+<line x1="593" y1="410" x2="727" y2="410" stroke="#5b6270"/>
+<text x="660" y="426" font-size="13" text-anchor="middle" fill="#1c1f26">position</text>
+<text x="660" y="442" font-size="13" text-anchor="middle" fill="#1c1f26">nette (&gt; 60 %)</text>
+<ellipse cx="1210" cy="1080" rx="58" ry="34" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="1210" y="1070" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26">signe</text>
+<line x1="1169" y1="1078" x2="1251" y2="1078" stroke="#5b6270"/>
+<text x="1210" y="1094" font-size="13" text-anchor="middle" fill="#1c1f26">rôle</text>
+<ellipse cx="540" cy="1160" rx="58" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="540" y="1165" font-size="14" text-anchor="middle" fill="#1c1f26">dépose</text>
+<ellipse cx="250" cy="1330" rx="58" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="250" y="1335" font-size="14" text-anchor="middle" fill="#1c1f26">cosigne</text>
+<ellipse cx="1340" cy="1360" rx="58" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="1340" y="1365" font-size="14" text-anchor="middle" fill="#1c1f26">modifie</text>
+<ellipse cx="860" cy="1090" rx="82" ry="22" fill="#eef3f8" stroke="#1c1f26" stroke-width="1.4"/>
+<text x="860" y="1095" font-size="14" text-anchor="middle" fill="#1c1f26">est examiné par</text>
+<rect x="165" y="93" width="170" height="274" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="165" y1="121" x2="335" y2="121" stroke="#1c1f26"/>
+<text x="250" y="113" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">SCRUTIN</text>
+<text x="177" y="137" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="177" y="156" font-size="14" fill="#1c1f26">numéro</text>
+<text x="177" y="175" font-size="14" fill="#1c1f26">date</text>
+<text x="177" y="194" font-size="14" fill="#1c1f26">type de vote</text>
+<text x="177" y="213" font-size="14" fill="#1c1f26">sort</text>
+<text x="177" y="232" font-size="14" fill="#1c1f26">titre</text>
+<text x="177" y="251" font-size="14" fill="#1c1f26">demandeur</text>
+<text x="177" y="270" font-size="14" fill="#1c1f26">votants</text>
+<text x="177" y="289" font-size="14" fill="#1c1f26">exprimés</text>
+<text x="177" y="308" font-size="14" fill="#1c1f26">pour</text>
+<text x="177" y="327" font-size="14" fill="#1c1f26">contre</text>
+<text x="177" y="346" font-size="14" fill="#1c1f26">abstentions</text>
+<rect x="815" y="130" width="170" height="141" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="815" y1="158" x2="985" y2="158" stroke="#1c1f26"/>
+<text x="900" y="150" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">DOSSIER</text>
+<text x="827" y="174" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="827" y="192" font-size="14" fill="#1c1f26">type</text>
+<text x="827" y="212" font-size="14" fill="#1c1f26">législature</text>
+<text x="827" y="230" font-size="14" fill="#1c1f26">titre</text>
+<text x="827" y="250" font-size="14" fill="#1c1f26">procédure</text>
+<rect x="1435" y="130" width="170" height="141" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="1435" y1="158" x2="1605" y2="158" stroke="#1c1f26"/>
+<text x="1520" y="150" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">ÉTAPE</text>
+<text x="1447" y="174" font-size="14" fill="#1c1f26" text-decoration="underline">ordre</text>
+<text x="1447" y="192" font-size="14" fill="#1c1f26">code</text>
+<text x="1447" y="212" font-size="14" fill="#1c1f26">date</text>
+<text x="1447" y="230" font-size="14" fill="#1c1f26">statut</text>
+<text x="1447" y="250" font-size="14" fill="#1c1f26">n° de loi</text>
+<rect x="165" y="721" width="170" height="198" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="165" y1="749" x2="335" y2="749" stroke="#1c1f26"/>
+<text x="250" y="741" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">ACTEUR</text>
+<text x="177" y="765" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="177" y="784" font-size="14" fill="#1c1f26">civilité</text>
+<text x="177" y="803" font-size="14" fill="#1c1f26">prénom</text>
+<text x="177" y="822" font-size="14" fill="#1c1f26">nom</text>
+<text x="177" y="841" font-size="14" fill="#1c1f26">date de naissance</text>
+<text x="177" y="860" font-size="14" fill="#1c1f26">lieu de naissance</text>
+<text x="177" y="879" font-size="14" fill="#1c1f26">profession</text>
+<text x="177" y="898" font-size="14" fill="#1c1f26">lien HATVP</text>
+<rect x="788" y="721" width="224" height="198" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="788" y1="749" x2="1012" y2="749" stroke="#1c1f26"/>
+<text x="900" y="741" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">ORGANE</text>
+<text x="800" y="765" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="800" y="784" font-size="14" fill="#1c1f26">type (groupe, commission…)</text>
+<text x="800" y="803" font-size="14" fill="#1c1f26">libellé</text>
+<text x="800" y="822" font-size="14" fill="#1c1f26">libellé abrégé</text>
+<text x="800" y="841" font-size="14" fill="#1c1f26">législature</text>
+<text x="800" y="860" font-size="14" fill="#1c1f26">date de début</text>
+<text x="800" y="879" font-size="14" fill="#1c1f26">date de fin</text>
+<text x="800" y="898" font-size="14" fill="#1c1f26">couleur</text>
+<rect x="1435" y="740" width="170" height="160" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="1435" y1="768" x2="1605" y2="768" stroke="#1c1f26"/>
+<text x="1520" y="760" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">DOCUMENT</text>
+<text x="1447" y="784" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="1447" y="803" font-size="14" fill="#1c1f26">type</text>
+<text x="1447" y="822" font-size="14" fill="#1c1f26">dénomination</text>
+<text x="1447" y="841" font-size="14" fill="#1c1f26">législature</text>
+<text x="1447" y="860" font-size="14" fill="#1c1f26">titre</text>
+<text x="1447" y="879" font-size="14" fill="#1c1f26">date de dépôt</text>
+<rect x="815" y="1252" width="170" height="217" rx="3" fill="#ffffff" stroke="#1c1f26" stroke-width="1.8"/>
+<line x1="815" y1="1280" x2="985" y2="1280" stroke="#1c1f26"/>
+<text x="900" y="1272" font-size="15" font-weight="bold" text-anchor="middle" fill="#1c1f26">AMENDEMENT</text>
+<text x="827" y="1296" font-size="14" fill="#1c1f26" text-decoration="underline">uid</text>
+<text x="827" y="1314" font-size="14" fill="#1c1f26">numéro</text>
+<text x="827" y="1334" font-size="14" fill="#1c1f26">type d&#x27;auteur</text>
+<text x="827" y="1352" font-size="14" fill="#1c1f26">date de dépôt</text>
+<text x="827" y="1372" font-size="14" fill="#1c1f26">état</text>
+<text x="827" y="1390" font-size="14" fill="#1c1f26">sort</text>
+<text x="827" y="1410" font-size="14" fill="#1c1f26">article</text>
+<text x="827" y="1428" font-size="14" fill="#1c1f26">dispositif</text>
+<text x="827" y="1448" font-size="14" fill="#1c1f26">exposé</text>
+<text x="24" y="1544" font-size="13" fill="#5b6270">Rectangle : entité (identifiant souligné). Ellipse : association, avec ses attributs. Cardinalités min,max côté entité ; (1,1) : identification relative. Pointillés : donnée calculée, base séparée ou rappel d&#x27;une autre vue.</text>
+<text x="362" y="238" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="789" y="192" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="1409" y="192" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">(1,1)</text>
+<text x="1011" y="218" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="887" y="302" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="913" y="700" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="1434" y="717" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="982" y="303" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="321" y="401" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">1,n</text>
+<text x="340" y="711" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="791" y="704" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="353" y="297" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="980" y="699" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="357" y="867" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="1407" y="903" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="300" y="951" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="799" y="1294" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="200" y="951" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="790" y="1347" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="1011" y="1378" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">1,1</text>
+<text x="1473" y="926" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+<text x="893" y="1229" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,1</text>
+<text x="869" y="948" font-size="14" font-weight="bold" text-anchor="middle" fill="#1c1f26" stroke="#fafaf7" stroke-width="4" paint-order="stroke">0,n</text>
+</svg>
