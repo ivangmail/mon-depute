@@ -79,5 +79,11 @@ dont elle dépend) ; pointillés = donnée calculée, base séparée ou simple r
   les contours des circonscriptions (`collecte/contours/`), les corrections de
   thèmes (`collecte/themes_corrections.csv`) et les intitulés en langage courant
   (`collecte/libelles_textes.csv`). Le thème d'un dossier est calculé à la volée.
-- Les tables `reunions_comptees` (réunions retenues pour la présence) et
-  `imports` (fichiers téléchargés) sont techniques ; elles figurent dans la vue 4.
+- Dans la vue 4, DOSSIER n'est pas une table de plus : c'est l'entité de la vue 2,
+  montrée avec ses attributs dérivés (thème, intitulé en langage courant), qui
+  n'ont pas de colonne. Son lien « est examiné au fond par » ORGANE y est répété,
+  car le thème en découle.
+- IMPORT (table `imports`) est un journal technique des fichiers téléchargés :
+  aucune table n'y fait référence, elle est hors du modèle métier et n'apparaît
+  que pour être complet. La table `reunions_comptees` (réunions retenues pour la
+  présence) se lit comme un attribut calculé de RÉUNION.

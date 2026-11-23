@@ -59,10 +59,10 @@ ENTITES = {
     "RÉFÉRENCE": (["indicateur"], ["médiane", "effectif"], "calculé"),
     "IMPORT": (["fichier"], ["jeu", "url", "etag", "date de mise à jour", "téléchargé le",
                              "chargé le"], "calculé"),
-    "DOSSIER (compléments)": (["uid"], ["commission saisie au fond", "thème (calculé)",
-                                        "thème corrigé (fichier)",
-                                        "intitulé en langage courant (fichier, validé)"],
-                              "calculé"),
+    # Même entité que DOSSIER (vue 2), vue par ses attributs dérivés.
+    "DOSSIER#calcul": (["uid"], ["titre", "thème (déduit de la commission saisie au fond)",
+                                 "thème corrigé (fichier)",
+                                 "intitulé en langage courant (fichier, validé)"], "calculé"),
 }
 
 
@@ -127,13 +127,15 @@ VUES = [
         ("concerne", [], (1500, 1080), [("POINT D'ORDRE DU JOUR", "0,1", 0),
                                         (reference("DOSSIER"), "0,n", 0)]),
     ]),
-    ("4-calculs", "Vue 4 : données calculées chaque jour et compléments", (1700, 880), {
-        "ACTEUR": (230, 230), "INDICATEURS": (860, 230), "ORGANE": (230, 640),
-        "RÉFÉRENCE": (860, 640), "IMPORT": (1440, 200), "DOSSIER (compléments)": (1400, 640),
+    ("4-calculs", "Vue 4 : données calculées chaque jour et compléments", (1700, 1180), {
+        "ACTEUR": (230, 230), "INDICATEURS": (860, 230), "ORGANE": (230, 700),
+        "RÉFÉRENCE": (860, 560), "IMPORT": (1440, 230), "DOSSIER#calcul": (900, 920),
     }, [
         ("mesure", [], (540, 230), [("ACTEUR", "0,1", 0), ("INDICATEURS", "(1,1)", 0)]),
-        ("est le repère de", ["« tous » si aucun groupe"], (540, 640),
+        ("est le repère de", ["« tous » si aucun groupe"], (540, 560),
          [("RÉFÉRENCE", "0,1", 0), ("ORGANE", "0,n", 0)]),
+        ("est examiné au fond par", [], (540, 920), [("DOSSIER#calcul", "0,1", 0),
+                                                     ("ORGANE", "0,n", 0)]),
     ]),
 ]
 
@@ -144,8 +146,7 @@ LEGENDE = ("Rectangle : entité (identifiant souligné). Ellipse : association, 
 NOTES = {"4-calculs": [
     "Également recalculées chaque jour : la ligne de chaque groupe sur chaque scrutin (vue 2), "
     "et la liste des réunions de commission",
-    "retenues pour la présence (réunions confirmées, passées, avec au moins un présent). "
-    "IMPORT trace les fichiers téléchargés ; il n'est lié à rien.",
+    "retenues pour la présence (réunions confirmées, passées, avec au moins un présent).",
 ]}
 
 
@@ -155,6 +156,10 @@ def largeur(texte, taille=14):
 
 def boite(nom):
     """(largeur, hauteur, identifiants, attributs, genre, titre) d'une entité."""
+    if nom.endswith("#calcul"):
+        ids, attrs, _ = ENTITES[nom]
+        return (max([largeur(a) + 2 * MARGE for a in ids + attrs] + [170]),
+                ENTETE + LIGNE * len(ids + attrs) + 12, ids, attrs, "dérivé", nom[:-7])
     if nom.endswith("#ref"):
         vrai = nom[:-4]
         ids, _, _ = ENTITES[vrai]
@@ -228,8 +233,10 @@ def svg_vue(cle, titre, taille, positions, associations):
     for nom, (cx, cy) in positions.items():
         l, hh, ids, attrs, genre, titre_entite = boites[nom]
         x, y = cx - l / 2, cy - hh / 2
-        couleur = {"calculé": CALCULE, "séparé": SEPAREE, "référence": CALCULE}.get(genre, ENCRE)
-        pointilles = ' stroke-dasharray="7 4"' if genre in ("calculé", "séparé", "référence") else ""
+        couleur = {"calculé": CALCULE, "séparé": SEPAREE, "référence": CALCULE,
+                   "dérivé": CALCULE}.get(genre, ENCRE)
+        pointilles = (' stroke-dasharray="7 4"'
+                      if genre in ("calculé", "séparé", "référence", "dérivé") else "")
         formes.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{l:.0f}" height="{hh}" rx="3" '
                       f'fill="{FOND_ENTITE}" stroke="{couleur}" stroke-width="1.8"{pointilles}/>')
         formes.append(f'<line x1="{x:.0f}" y1="{y + ENTETE - 6:.0f}" x2="{x + l:.0f}" '
@@ -244,6 +251,14 @@ def svg_vue(cle, titre, taille, positions, associations):
             formes.append(f'<text x="{cx:.0f}" y="{y + hh + 18:.0f}" font-size="12" '
                           f'text-anchor="middle" fill="{SEPAREE}">base séparée abonnes.sqlite'
                           "</text>")
+        elif genre == "dérivé":
+            formes.append(f'<text x="{cx:.0f}" y="{y + hh + 18:.0f}" font-size="12" '
+                          f'text-anchor="middle" fill="{DOUX}">même entité que DOSSIER (vue 2) : '
+                          "attributs calculés ou lus dans des fichiers, sans colonne</text>")
+        elif nom == "IMPORT":
+            formes.append(f'<text x="{cx:.0f}" y="{y + hh + 18:.0f}" font-size="12" '
+                          f'text-anchor="middle" fill="{DOUX}">table technique, hors modèle : '
+                          "journal des fichiers téléchargés</text>")
         elif genre == "référence":
             formes.append(f'<text x="{x + l + 10:.0f}" y="{cy + 4:.0f}" font-size="12" '
                           f'fill="{DOUX}">détaillé dans la vue 2</text>')
