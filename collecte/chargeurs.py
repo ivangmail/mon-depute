@@ -12,6 +12,7 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
+from . import etapes
 from .sources import HISTORIQUE, LEGISLATURE
 
 NS = "{http://schemas.assemblee-nationale.fr/referentiel}"
@@ -324,7 +325,7 @@ def _commission_fond(dossier):
 
 
 def charger_dossiers(db, chemins):
-    for table in ("dossiers", "documents", "documents_signataires"):
+    for table in ("dossiers", "etapes", "documents", "documents_signataires"):
         db.execute(f"DELETE FROM {table}")
     for chemin in chemins:
         for _, contenu in fichiers_json(chemin, "/dossierParlementaire/"):
@@ -335,6 +336,11 @@ def charger_dossiers(db, chemins):
                 (d["uid"], d.get("@xsi:type"), val(d.get("legislature")),
                  lire(d, "titreDossier", "titre"), lire(d, "titreDossier", "titreChemin"),
                  lire(d, "procedureParlementaire", "libelle"), _commission_fond(d)))
+            for ordre, acte in enumerate(_actes(d.get("actesLegislatifs"))):
+                if acte.get("@xsi:type") in etapes.TYPES and val(acte.get("dateActe")):
+                    db.execute("INSERT INTO etapes VALUES (?,?,?,?,?,?)", (
+                        d["uid"], ordre, val(acte.get("codeActe")), date(val(acte.get("dateActe"))),
+                        lire(acte, "statutConclusion", "libelle"), val(acte.get("codeLoi"))))
         for _, contenu in fichiers_json(chemin, "/document/"):
             d = contenu["document"]
             uid = d["uid"]

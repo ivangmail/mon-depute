@@ -573,3 +573,98 @@ class Themes(unittest.TestCase):
         self.assertEqual(themes.lire_corrections(os.path.join(self.tmp.name, "absent.csv")), {})
         # Le fichier livré avec le code ne contient que des thèmes connus.
         self.assertTrue(themes.lire_corrections())
+
+
+from collecte import etapes  # noqa: E402
+
+
+def etape(code, date, statut=None, code_loi=None):
+    return {"code": code, "date": date, "statut": statut, "code_loi": code_loi}
+
+
+class Etapes(unittest.TestCase):
+    def test_navette_jusqu_a_la_promulgation(self):
+        suite = [etape("AN1-DEPOT", "2025-12-01"),
+                 etape("AN1-DEBATS-SEANCE", "2025-12-11"),
+                 etape("AN1-DEBATS-DEC", "2025-12-11", "adoptée")]
+        self.assertEqual(etapes.decrire(suite), "Texte adopté par l'Assemblée nationale le "
+                                                "11/12/2025, en 1re lecture")
+        suite.append(etape("SN1-DEPOT", "2025-12-12"))
+        self.assertEqual(etapes.decrire(suite), "Texte adopté par l'Assemblée nationale le "
+                         "11/12/2025, en 1re lecture, puis transmis au Sénat le 12/12/2025")
+        suite += [etape("SN1-DEBATS-SEANCE", "2026-05-27")]
+        self.assertTrue(etapes.decrire(suite).endswith(
+            "en 1re lecture ; examen en séance au Sénat depuis le 27/05/2026"))
+        suite += [etape("SN1-DEBATS-DEC", "2026-05-28", "modifiée"),
+                  etape("AN2-DEPOT", "2026-05-29")]
+        self.assertEqual(etapes.decrire(suite), "Texte modifié par le Sénat le 28/05/2026, en 1re "
+                         "lecture, puis transmis à l'Assemblée nationale le 29/05/2026")
+        # Vote conforme : les deux assemblées ont adopté le même texte.
+        suite.append(etape("AN2-DEBATS-DEC", "2026-07-01", "adoptée sans modification"))
+        self.assertEqual(etapes.decrire(suite), "Texte adopté définitivement par le Parlement "
+                                                "le 01/07/2026, pas encore promulgué")
+        suite.append(etape("PROM-PUB", "2026-07-13", code_loi="2026-630"))
+        self.assertEqual(etapes.decrire(suite), "Loi promulguée le 13/07/2026 (loi n° 2026-630)")
+
+    def test_commission_mixte_paritaire_et_conseil_constitutionnel(self):
+        # Les dates ne suivent pas toujours l'ordre du dossier : on trie par date.
+        suite = [etape("SN1-DEBATS-DEC", "2026-04-14", "adopté"),
+                 etape("AN1-DEBATS-DEC", "2026-07-07", "modifié"),
+                 etape("CMP-DEPOT", "2026-07-07"),
+                 etape("CMP-DEBATS-AN-DEC", "2026-07-08", "adopté, dans les conditions prévues à "
+                       "l'article 45, alinéa 3, de la Constitution"),
+                 etape("CMP-DEC", "2026-07-08", "Accord")]
+        self.assertEqual(etapes.decrire(suite), "Texte adopté par l'Assemblée nationale le "
+                         "08/07/2026, sur le texte de la commission mixte paritaire")
+        suite.append(etape("CMP-DEBATS-SN-DEC", "2026-07-09", "adopté"))
+        self.assertEqual(etapes.decrire(suite), "Texte adopté définitivement par le Parlement "
+                                                "le 09/07/2026, pas encore promulgué")
+        suite.append(etape("CC-CONCLUSION", "2026-07-23", "Partiellement conforme"))
+        self.assertEqual(etapes.decrire(suite), "Décision du Conseil constitutionnel le 23/07/2026"
+                         " : partiellement conforme ; loi pas encore promulguée")
+        suite.append(etape("PROM-PUB", "2026-07-23", code_loi="2026-651"))
+        self.assertEqual(etapes.decrire(suite), "Loi promulguée le 23/07/2026 (loi n° 2026-651), "
+                         "après une décision du Conseil constitutionnel : partiellement conforme")
+
+    def test_autres_cas(self):
+        self.assertEqual(etapes.decrire([etape("CMP-DEC", "2026-06-03", "Désaccord")]),
+                         "Désaccord en commission mixte paritaire le 03/06/2026")
+        self.assertEqual(etapes.decrire([etape("ANLDEF-DEBATS-DEC", "2026-07-15", "adoptée")]),
+                         "Texte adopté définitivement par le Parlement le 15/07/2026, pas encore "
+                         "promulgué")
+        self.assertEqual(etapes.decrire([etape("ANLUNI-DEBATS-DEC", "2026-10-08", "rejetée")]),
+                         "Texte rejeté par l'Assemblée nationale le 08/10/2026, en lecture unique")
+        self.assertEqual(etapes.decrire([etape("AN1-DEPOT", "2026-06-23"),
+                                         etape("AN1-DEBATS-SEANCE", "2026-10-08"),
+                                         etape("AN1-DEBATS-SEANCE", "2026-10-09")]),
+                         "Examen en séance commencé à l'Assemblée nationale le 08/10/2026, sans "
+                         "vote sur l'ensemble du texte à ce jour")
+        self.assertEqual(etapes.decrire([etape("AN1-DEPOT", "2026-01-05"),
+                                         etape("AN1-RTRINI", "2026-04-09")]),
+                         "Texte retiré par son auteur le 09/04/2026")
+        self.assertEqual(etapes.decrire([etape("SN1-DEPOT", "2024-10-15")]),
+                         "Texte déposé au Sénat le 15/10/2024")
+        self.assertEqual(etapes.decrire([etape("AN1-DEPOT", None)]), "")
+
+    def test_chargement(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            acte = lambda code, type_, date=None, **extra: {
+                "codeActe": code, "@xsi:type": type_, "dateActe": date, **extra}
+            dossier = {"dossierParlementaire": {
+                "uid": "DL1", "legislature": "17", "titreDossier": {"titre": "Eau"},
+                "actesLegislatifs": {"acteLegislatif": {
+                    **acte("AN1", "Etape_Type"), "actesLegislatifs": {"acteLegislatif": [
+                        acte("AN1-DEPOT", "DepotInitiative_Type", "2026-01-05T00:00:00.000+01:00"),
+                        {**acte("AN1-DEBATS", "Etape_Type"), "actesLegislatifs": {
+                            "acteLegislatif": acte(
+                                "AN1-DEBATS-DEC", "Decision_Type", "2026-02-01T00:00:00.000+01:00",
+                                statutConclusion={"libelle": "adoptée"})}}]}}}}}
+            chemin = archive(tmp, "d.zip", {"json/dossierParlementaire/DL1.json": dossier})
+            db = base.ouvrir(os.path.join(tmp, "b.sqlite"))
+            chargeurs.charger_dossiers(db, [chemin])
+            self.assertEqual([tuple(r) for r in db.execute(
+                "SELECT code, date, statut FROM etapes ORDER BY ordre")],
+                [("AN1-DEPOT", "2026-01-05", None), ("AN1-DEBATS-DEC", "2026-02-01", "adoptée")])
+            self.assertEqual(etapes.pour_dossiers(db, ["DL1", "DL2"]), {
+                "DL1": "Texte adopté par l'Assemblée nationale le 01/02/2026, en 1re lecture"})
+            db.close()

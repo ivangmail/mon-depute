@@ -339,6 +339,13 @@ def methodologie(db):
 <li><b>Textes de sa commission :</b> scrutins de la période sur les textes examinés au fond par
  la commission permanente dont le député est membre aujourd’hui. C’est là que porte sa
  spécialité ; la médiane est celle des membres actuels de cette commission.</li>
+<li><b>Où en sont ces textes :</b> la dernière étape datée publiée par l’Assemblée dans le
+ dossier de chaque texte (vote d’une assemblée, commission mixte paritaire, Conseil
+ constitutionnel, promulgation, retrait). Elle est décrite telle quelle, sans en déduire la
+ suite de la procédure. Un texte est dit « adopté définitivement » après un vote conforme des
+ deux assemblées, l’adoption du texte de la commission mixte paritaire par chacune d’elles,
+ ou une lecture définitive à l’Assemblée. Ces étapes sont publiées avec quelques jours de
+ retard.</li>
 </ul>
 
 <h2 id="themes">Les thèmes</h2>

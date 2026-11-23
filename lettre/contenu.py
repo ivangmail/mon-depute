@@ -9,7 +9,7 @@ import re
 import statistics
 from html import escape
 
-from collecte import fiche, indicateurs, site, themes
+from collecte import etapes, fiche, indicateurs, site, themes
 from collecte.portrait import jour, ordinal
 from collecte.sources import LEGISLATURE
 
@@ -20,6 +20,7 @@ LONGUEUR_EXTRAIT = 220  # caractères cités d'une intervention ou d'un exposé 
 MOTS_MIN_EXTRAIT = 100  # une prise de parole plus courte n'est pas citée
 EXEMPLES_AMENDEMENTS = 2
 LIMITE_MAJEURS = 8  # votes listés dans « L'essentiel »
+LIMITE_ETATS = 8  # textes listés dans « Où en sont ces textes »
 MOTION = "motion de censure"
 # Un scrutin est « serré » quand l'écart entre les pour et les contre ne dépasse pas ce nombre.
 ECART_SERRE = 10
@@ -359,6 +360,15 @@ def composer(db, departement, circo, debut, fin):
         theme = themes_des_textes.get(v["dossier_uid"])
         if theme:
             votes_par_theme[theme] = votes_par_theme.get(theme, 0) + 1
+    suivis = [m["dossier_uid"] for m in majeurs if m["dossier_uid"] and not m["censure"]] \
+        + [t["dossier_uid"] for t in scrutins_par_texte if t["dossier_uid"]]
+    etats = etapes.pour_dossiers(db, suivis)
+    titres_dossiers = {}
+    for i in range(0, len(suivis), 500):
+        morceau = sorted(set(suivis))[i:i + 500]
+        titres_dossiers.update(dict(tuple(r) for r in db.execute(
+            f"SELECT uid, titre FROM dossiers WHERE uid IN ({','.join('?' * len(morceau))})",
+            morceau).fetchall()))
     sa_commission = db.execute("""
         SELECT m.organe_uid, o.libelle_abrege, o.libelle FROM mandats m
         JOIN organes o ON o.uid = m.organe_uid
@@ -436,6 +446,7 @@ def composer(db, departement, circo, debut, fin):
         "themes": themes_des_textes,
         "votes_par_theme": sorted(votes_par_theme.items(), key=lambda t: (-t[1], t[0])),
         "commission_votes": commission_votes,
+        "etats": etats, "titres_dossiers": titres_dossiers,
         "reunions": [dict(r) for r in reunions],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
@@ -532,6 +543,26 @@ def rubriques(l):
         if elements:
             phrases.append("Amendements et articles, texte par texte :")
         sorties.append(("Sa participation aux scrutins", phrases, elements))
+
+    # 3. Où en sont les textes votés : un vote « adopté » à l'Assemblée n'est pas une loi.
+    etats, noms = l.get("etats") or {}, l.get("themes") or {}
+    ordre = [m["dossier_uid"] for m in l["majeurs"] if m.get("dossier_uid") and not m["censure"]]
+    ordre += [g["uid"] for g in votes_par_texte(l.get("autres_votes") or [],
+                                                l.get("scrutins_par_texte") or [])[:LIMITE]]
+    vus, elements = set(), []
+    for uid in ordre:
+        if uid in vus or uid not in etats or len(elements) >= LIMITE_ETATS:
+            continue
+        vus.add(uid)
+        titre = fiche.majuscule((l.get("titres_dossiers") or {}).get(uid) or "Texte")
+        elements.append((lier(f"{noms[uid]} — " if noms.get(uid) else "", titre,
+                              f" : {etats[uid]}"), URL_DOSSIER.format(uid)))
+    if elements:
+        sorties.append(("Où en sont ces textes", [
+            "Un vote de l'Assemblée n'est souvent qu'une étape : un texte ne devient loi "
+            "qu'après son adoption définitive par le Parlement, puis sa promulgation. "
+            "Dernière étape connue de chaque texte :"],
+            elements))
 
     partages = l.get("dissidents_partages") or 0
     if l["dissidents"] or partages:

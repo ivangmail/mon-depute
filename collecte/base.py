@@ -156,6 +156,17 @@ CREATE TABLE IF NOT EXISTS dossiers (
     commission_fond TEXT    -- commission de l'Assemblée saisie au fond (organe)
 );
 
+-- Étapes datées de la procédure d'un dossier (voir collecte/etapes.py).
+CREATE TABLE IF NOT EXISTS etapes (
+    dossier_uid TEXT NOT NULL,
+    ordre       INTEGER NOT NULL,   -- rang dans le dossier
+    code        TEXT,               -- AN1-DEBATS-DEC, PROM-PUB…
+    date        TEXT,
+    statut      TEXT,               -- « adoptée », « Conforme »…
+    code_loi    TEXT,               -- numéro de la loi promulguée
+    PRIMARY KEY (dossier_uid, ordre)
+) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS documents (
     uid           TEXT PRIMARY KEY,
     type          TEXT,

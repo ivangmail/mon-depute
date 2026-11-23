@@ -393,6 +393,8 @@ class Lettre(unittest.TestCase):
                    " VALUES ('D1', 'projet de loi eau', 'C1')")
         db.executemany("INSERT INTO mandats VALUES (?,?, 'C1', 'COMPER', '17', '2024-07-20',"
                        " NULL, 'Membre')", [("MC1", "PA1"), ("MC2", "PA2")])
+        db.executemany("INSERT INTO etapes VALUES ('D1', ?,?,?,?, NULL)", [
+            (1, "AN1-DEBATS-DEC", "2025-07-11", "adopté"), (2, "SN1-DEPOT", "2025-07-12", None)])
         db.execute("UPDATE scrutins SET dossier_uid = 'D1', nb_pour = 5, nb_contre = 90"
                    " WHERE uid = 'S3'")
         db.executemany(
@@ -439,6 +441,13 @@ class Lettre(unittest.TestCase):
                       "part à 1 des 3 scrutins (médiane des membres de la commission : 0,5).",
                       texte)
         self.assertIn("Ses votes par thème : Institutions, justice et sécurité (1).", texte)
+        # Où en est le texte : une seule ligne par dossier, même s'il a plusieurs votes.
+        self.assertIn("OÙ EN SONT CES TEXTES\n", texte)
+        self.assertEqual(texte.count("— Projet de loi eau : Texte adopté"), 1)
+        self.assertIn("- Institutions, justice et sécurité — Projet de loi eau : Texte adopté par "
+                      "l'Assemblée nationale le 11/07/2025, en 1re lecture, puis transmis au Sénat"
+                      " le 12/07/2025\n  https://www.assemblee-nationale.fr/dyn/17/dossiers/D1",
+                      texte)
         # S2 et S7 sont serrés ; la motion de censure n'entre pas dans ce décompte.
         self.assertIn("2 scrutins se sont joués à 10 voix ou moins : elle a pris part à 0 "
                       "d'entre eux.", texte)
