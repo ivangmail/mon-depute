@@ -293,6 +293,37 @@ class Indicateurs(unittest.TestCase):
         self.assertIn("N&#x27;a pas pris part au vote", page)  # S4 : pas de vote enregistré
         self.assertIn("UN : contre", page)                # son vote dissident sur S2
         self.assertTrue(os.path.exists(os.path.join(dossier, "methodologie.html")))
+        # Accueil : adresse d'abord, réassurance, parcours ; sans service de lettre,
+        # ni étape « lettre » ni page d'exemple.
+        self.assertIn("Sans compte · Sans cookie", accueil)
+        self.assertIn('class="etapes"', accueil)
+        self.assertIn('id="tout" type="button" hidden', accueil)  # liste repliée par le script
+        self.assertIn('data-lettre=""', accueil)
+        self.assertNotIn("Sa lettre, si vous le souhaitez", accueil)
+        self.assertFalse(os.path.exists(os.path.join(dossier, "exemple-lettre.html")))
+
+    def test_accueil_avec_la_lettre_et_son_exemple(self):
+        dossier = os.path.join(self.tmp.name, "site-lettre")
+        exemple = {"html": "<table><tr><td>LETTRE</td></tr></table>", "debut": "09/11/2026",
+                   "fin": "15/11/2026", "compose_le": "18/11/2026", "depute": "Ada Durand",
+                   "lieu": "2e circonscription, Ain (01)",
+                   "chemin_fiche": "deputes/ada-durand.html"}
+        site.generer(self.db, dossier, journal=lambda m: None, api_url="https://x.fr",
+                     exemple=exemple)
+        accueil = pathlib.Path(dossier, "index.html").read_text(encoding="utf-8")
+        self.assertIn('data-lettre="1"', accueil)
+        self.assertIn('Sa lettre, si vous le souhaitez', accueil)
+        self.assertIn('href="exemple-lettre.html"', accueil)
+        page = pathlib.Path(dossier, "exemple-lettre.html").read_text(encoding="utf-8")
+        self.assertIn("LETTRE", page)
+        self.assertIn('href="deputes/ada-durand.html#abonnement"', page)
+        self.assertIn("du 09/11/2026 au 15/11/2026", page)
+        self.assertIn("<b>Ada Durand</b>, 2e circonscription, Ain (01)", page)
+        # Sans exemple, la page précédente est retirée et l'accueil n'y renvoie plus.
+        site.generer(self.db, dossier, journal=lambda m: None, api_url="https://x.fr")
+        self.assertFalse(os.path.exists(os.path.join(dossier, "exemple-lettre.html")))
+        self.assertNotIn("exemple-lettre.html",
+                         pathlib.Path(dossier, "index.html").read_text(encoding="utf-8"))
 
 
 class Portrait(unittest.TestCase):

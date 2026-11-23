@@ -110,6 +110,25 @@ ul.liste a:hover b{text-decoration:underline}
 ul.liste span{color:var(--doux);font-size:.9rem}
 ul.liste .g{grid-row:span 2;align-self:center;white-space:nowrap}
 details{margin-top:32px}summary{cursor:pointer;font-weight:600}
+.accroche{font-size:1.1rem;max-width:62ch;color:var(--doux);margin:0 0 4px}
+.bloc.adresse{margin-top:20px}
+.bloc.adresse input{font-size:1.05rem;padding:12px 14px}
+.reassurance{margin:12px 0 6px;font-size:.9rem;font-weight:600}
+.etapes{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:14px;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));counter-reset:etape}
+.etapes li{counter-increment:etape;display:flex;gap:12px;align-items:flex-start}
+.etapes li::before{content:counter(etape);flex:none;width:28px;height:28px;border-radius:50%;
+background:var(--accent);color:var(--fond);display:grid;place-items:center;font-weight:700;
+font-size:.9rem}
+.etapes span{display:block;color:var(--doux);font-size:.9rem}
+.depute-trouve{background:var(--fond);border:1px solid var(--trait);border-radius:10px;
+padding:12px 14px;margin:0 0 10px}
+#resultat .depute-trouve .nom{font-size:1.15rem;font-weight:700;margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bouton.plein{background:var(--accent);color:var(--fond)}
+.bouton.plein:hover,.bouton.plein:focus-visible{background:var(--texte);border-color:var(--texte)}
+.lettre-exemple{margin:20px 0 0;border:1px solid var(--trait);border-radius:12px;
+overflow:hidden}
 footer{border-top:1px solid var(--trait);color:var(--doux);font-size:.85rem}
 footer div{max-width:900px;margin:0 auto;padding:18px 16px 32px}
 @media(max-width:520px){h1{font-size:1.6rem}dl.contact{grid-template-columns:1fr}
@@ -121,6 +140,12 @@ RECHERCHE_JS = """
   var champ = document.getElementById('q'), groupe = document.getElementById('g');
   var lignes = [].slice.call(document.querySelectorAll('#deputes li'));
   var compteur = document.getElementById('compteur');
+  var liste = document.getElementById('deputes'), tout = document.getElementById('tout');
+  var ouverte = false;  // sans JavaScript, la liste reste affichée en entier
+  if (tout) {
+    tout.hidden = false;
+    tout.addEventListener('click', function () { ouverte = true; filtrer(); });
+  }
   function norm(t) { return t.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase(); }
   function filtrer() {
     var mots = norm(champ.value).split(/\\s+/).filter(Boolean), g = groupe.value, n = 0;
@@ -129,7 +154,13 @@ RECHERCHE_JS = """
         mots.every(function (m) { return li.dataset.q.indexOf(m) !== -1; });
       li.hidden = !ok; if (ok) n++;
     });
-    compteur.textContent = n + (n > 1 ? ' députés' : ' député');
+    var recherche = mots.length > 0 || g !== '';
+    if (tout) {
+      liste.hidden = !(ouverte || recherche);
+      tout.hidden = !liste.hidden;
+    }
+    compteur.textContent = n + (n > 1 ? ' députés' : ' député') +
+      (recherche ? (n > 1 ? ' trouvés' : ' trouvé') : '');
   }
   champ.addEventListener('input', filtrer); groupe.addEventListener('change', filtrer);
   filtrer();
@@ -171,30 +202,41 @@ def _ligne(d, chemin):
             f'<span>{escape(circo)}</span></a></li>')
 
 
-def accueil(deputes, chemins):
+def accueil(deputes, chemins, lettre=False, exemple_lettre=False):
+    """lettre : le service d'abonnement est en place ; exemple_lettre : la page
+    exemple-lettre.html est publiée."""
     actifs = [d for d in deputes if d["en_exercice"]]
     anciens = [d for d in deputes if not d["en_exercice"]]
     groupes = sorted({(d["groupe_sigle"], d["groupe_libelle"]) for d in actifs
                       if d["groupe_sigle"]}, key=lambda g: g[1])
     options = "".join(f'<option value="{escape(s)}">{escape(l)} ({escape(s)})</option>'
                       for s, l in groupes)
+    exemple = (' <a href="exemple-lettre.html">Voir un exemple</a>.' if exemple_lettre
+               else "")
     return f"""
 <h1>Que fait votre député ?</h1>
-<p class="portrait">Le portrait de l’activité de chaque député à l’Assemblée nationale : ses votes,
- sa présence en commission, ses interventions, ses amendements et ses questions,
- à partir des données officielles. <a href="pourquoi.html">Pourquoi suivre son député ?</a></p>
-<section class="bloc">
-<h2>Par votre adresse</h2>
+<p class="accroche">Ses votes, ses amendements, ses interventions et sa présence en commission,
+ à partir des données officielles de l’Assemblée nationale.</p>
+<section class="bloc adresse" aria-label="Trouver votre député par votre adresse">
 <label for="adresse">Votre adresse postale</label>
 <input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 boulevard du Port, 80000 Amiens">
 <ul id="suggestions"></ul>
-<div id="resultat" aria-live="polite"></div>
+<div id="resultat" aria-live="polite" data-lettre="{'1' if lettre else ''}"></div>
+<p class="reassurance">Données officielles de l’Assemblée nationale · Sans compte · Sans cookie</p>
 <p class="doux petit">Votre adresse est envoyée par votre navigateur au service public de géocodage
  de l’IGN, qui renvoie ses coordonnées (à défaut, votre code postal est envoyé au service public
  des communes). Ce site ne la reçoit pas et ne conserve rien.
  <a href="methodologie.html#adresse">Comment la circonscription est trouvée</a>.
  <button class="lien" id="etranger" type="button">J’habite à l’étranger</button></p>
 </section>
+<ol class="etapes">
+<li><div><b>Votre adresse</b><span>pour trouver votre circonscription.</span></div></li>
+<li><div><b>Votre député</b><span>ses votes et son activité, comparés aux médianes des
+ députés.</span></div></li>
+{f"""<li><div><b>Sa lettre, si vous le souhaitez</b><span>chaque semaine ou chaque mois, par
+ e-mail.{exemple}</span></div></li>""" if lettre else ""}
+</ol>
+<p class="petit"><a href="pourquoi.html">Pourquoi suivre son député ?</a></p>
 <h2>Par nom ou département</h2>
 <form class="recherche" role="search" onsubmit="return false">
 <input id="q" type="search" autocomplete="off" aria-label="Rechercher un député"
@@ -202,6 +244,7 @@ def accueil(deputes, chemins):
 <select id="g" aria-label="Filtrer par groupe politique"><option value="">Tous les groupes</option>{options}</select>
 </form>
 <p class="doux petit" id="compteur" aria-live="polite">{len(actifs)} députés</p>
+<button class="lien" id="tout" type="button" hidden>Afficher la liste des {len(actifs)} députés</button>
 <ul class="liste" id="deputes">{''.join(_ligne(d, chemins[d['acteur_uid']]) for d in actifs)}</ul>
 <details><summary>Députés ayant quitté l’Assemblée depuis le début de la législature ({len(anciens)})</summary>
 <ul class="liste">{''.join(_ligne(d, chemins[d['acteur_uid']]) for d in anciens)}</ul></details>
@@ -718,10 +761,29 @@ def confidentialite(api_url, editeur=None, contact=None, sauvegarde_distante=Fal
 """
 
 
+def exemple_lettre(exemple):
+    """Page présentant une lettre réelle. exemple : dict renvoyé par
+    lettre.exemple.composer (html, debut, fin, compose_le, depute, lieu, chemin_fiche)."""
+    return f"""
+<h1>Exemple de lettre</h1>
+<p class="portrait"><b>{escape(exemple['depute'])}</b>, {escape(exemple['lieu'])} : voici, telle
+ quelle, la lettre hebdomadaire envoyée aux abonnés de cette circonscription pour la semaine
+ {f"du {escape(exemple['debut'])} au {escape(exemple['fin'])}"}, composée le
+ {escape(exemple['compose_le'])}. Cet exemple est mis à jour chaque semaine. Chaque député en
+ exercice a sa lettre, faite avec les mêmes règles.</p>
+<p><a class="bouton plein" href="{escape(exemple['chemin_fiche'])}#abonnement">Recevoir la lettre de
+ ce député</a> <a class="bouton" href="index.html">Trouver votre député</a></p>
+<div class="lettre-exemple">{exemple['html']}</div>
+<p class="doux petit">Les règles de la lettre sont décrites dans la
+ <a href="methodologie.html#lettre">Méthodologie</a>.</p>"""
+
+
 def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None,
-            hebergeur=None, sauvegarde_distante=False):
+            hebergeur=None, sauvegarde_distante=False, exemple=None):
     """editeur : nom de l'éditeur du site. S'il est fourni, la page Mentions
-    légales est générée et liée depuis le pied de chaque page."""
+    légales est générée et liée depuis le pied de chaque page.
+    exemple : lettre réelle à publier dans exemple-lettre.html (voir
+    exemple_lettre), seulement si le service d'abonnement est en place."""
     api_url = (api_url or "").rstrip("/") or None
     mentions = bool(editeur)
     fraicheur = fiche.date_source(l[0] for l in db.execute("SELECT last_modified FROM imports"))
@@ -754,7 +816,15 @@ def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None
     ecrire("index.html", page(
         NOM_SITE, "L’activité de chaque député à l’Assemblée nationale : votes, présence"
         " en commission, interventions, amendements, questions.",
-        accueil(deputes, chemins), "", fraicheur, mentions))
+        accueil(deputes, chemins, lettre=bool(api_url),
+                exemple_lettre=bool(api_url and exemple)), "", fraicheur, mentions))
+    if api_url and exemple:
+        ecrire("exemple-lettre.html", page(
+            f"Exemple de lettre · {NOM_SITE}",
+            "Une lettre réelle, telle que la reçoivent les abonnés.",
+            exemple_lettre(exemple), "", fraicheur, mentions))
+    elif os.path.exists(os.path.join(dossier, "exemple-lettre.html")):
+        os.remove(os.path.join(dossier, "exemple-lettre.html"))
     ecrire("methodologie.html", page(
         f"Méthodologie · {NOM_SITE}", "Comment chaque indicateur est calculé, et ses limites.",
         methodologie(db), "", fraicheur, mentions))

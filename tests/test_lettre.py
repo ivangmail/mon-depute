@@ -351,6 +351,27 @@ class Lettre(unittest.TestCase):
                          (0, 1, 1, 0))
         self.assertEqual(len(self.courriels()), 1)
 
+    def test_exemple_publie_sur_le_site(self):
+        import sqlite3
+        from lettre import exemple
+        self.assertEqual(exemple.lire_circonscription(" 2a-01 "), ("2A", "1"))
+        for illisible in ("", "69", "69-x", "69-0"):
+            with self.assertRaises(ValueError):
+                exemple.lire_circonscription(illisible)
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        mercredi = datetime.datetime(2025, 7, 16, 8, tzinfo=datetime.timezone.utc)
+        e = exemple.composer(db, "10-2", mercredi)   # semaine du 07/07 au 13/07/2025
+        self.assertEqual((e["debut"], e["fin"], e["compose_le"]),
+                         ("07/07/2025", "13/07/2025", "16/07/2025"))
+        self.assertIn('role="presentation"', e["html"])
+        self.assertNotIn("Vous désabonner", e["html"])   # aucun lien d'abonné
+        self.assertIn('href="./' + e["chemin_fiche"], e["html"])
+        self.assertIsNone(exemple.composer(db, "10-7", mercredi))   # siège vacant
+        self.assertIsNone(exemple.composer(            # semaine sans activité
+            db, "10-2", datetime.datetime(2030, 1, 9, tzinfo=datetime.timezone.utc)))
+        db.close()
+
     def test_contenu(self):
         import sqlite3
         db = sqlite3.connect(self.config.donnees)

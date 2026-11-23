@@ -153,19 +153,28 @@
     q.scrollIntoView({ block: 'center' });
   }
 
+  // Carte d'un député trouvé : nom, groupe, circonscription, et les deux suites
+  // possibles (sa fiche ; le formulaire d'abonnement de sa fiche, si le service
+  // de la lettre est en place).
+  var avecLettre = resultat.getAttribute('data-lettre') === '1';
   function ligneDepute(circo, numero, nomDepartement) {
-    var p = element('p');
+    var carte = element('div', null, { class: 'depute-trouve' });
+    var lieu = ordinal(numero) + ' circonscription, ' + nomDepartement;
     if (circo.depute) {
-      var a = element('a', circo.depute.nom, { href: circo.depute.lien });
-      var b = element('b'); b.appendChild(a); p.appendChild(b);
-      p.appendChild(document.createTextNode(' (' + circo.depute.groupe + ') · '));
+      carte.appendChild(element('p', circo.depute.nom, { class: 'nom' }));
+      carte.appendChild(element('p', (circo.depute.groupe ? circo.depute.groupe + ' · ' : '') + lieu,
+                                { class: 'doux petit' }));
+      var actions = element('div', null, { class: 'actions' });
+      actions.appendChild(element('a', 'Voir son activité',
+                                  { href: circo.depute.lien, class: 'bouton plein' }));
+      if (avecLettre) actions.appendChild(element('a', 'Recevoir sa lettre',
+                                  { href: circo.depute.lien + '#abonnement', class: 'bouton' }));
+      carte.appendChild(actions);
     } else {
-      p.appendChild(element('b', 'Siège actuellement vacant'));
-      p.appendChild(document.createTextNode(' · '));
+      carte.appendChild(element('p', 'Siège actuellement vacant', { class: 'nom' }));
+      carte.appendChild(element('p', lieu, { class: 'doux petit' }));
     }
-    p.appendChild(document.createTextNode(
-      ordinal(numero) + ' circonscription, ' + nomDepartement));
-    return p;
+    return carte;
   }
 
   function afficher(trouve, donnees, libelle) {

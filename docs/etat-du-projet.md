@@ -105,6 +105,15 @@ dans `/etc/systemd/system/` puis `systemctl daemon-reload`.)
   du jour des 7 jours suivants avec bouton « Écrire avant le débat », séance,
   commission, amendements, questions ; version visuelle en tableaux HTML, retour
   à la version simple au-delà de 90 Ko.
+- **Résumé « En bref »** (3 lignes, règles fixes, sans IA) en tête de lettre ;
+  **thèmes mis en avant** au choix de l'abonné (page de gestion) : les textes de
+  ces thèmes passent en premier, rien n'est retiré ; **point du lundi** envoyé à
+  l'éditeur (abonnements de la semaine, intitulés à décider).
+- **Accueil** : adresse d'abord, réassurance (données officielles, sans compte,
+  sans cookie), parcours en 3 étapes, résultat avec « Voir son activité » et
+  « Recevoir sa lettre » (formulaire de la fiche), liste des députés repliée
+  (affichée sans JavaScript). Exemple de lettre réelle publié si
+  `MD_EXEMPLE_LETTRE` est renseigné (circonscription choisie par l'éditeur).
 - **Ordre du jour** : seuls les points confirmés de séances confirmées (le résumé
   publié par l'Assemblée garde les points supprimés).
 

@@ -83,11 +83,23 @@ def publier(db, args):
         indicateurs.calculer(db)
     print(f"[indicateurs] terminé en {time.time() - debut:.0f} s")
     debut = time.time()
+    exemple = None
+    if os.environ.get("MD_EXEMPLE_LETTRE", "").strip():
+        # Import tardif : le paquet lettre dépend de collecte, pas l'inverse.
+        from lettre import exemple as lettre_exemple
+        try:
+            exemple = lettre_exemple.composer(db, os.environ["MD_EXEMPLE_LETTRE"])
+            print("[site] exemple de lettre : " + ("composé" if exemple else
+                  "aucune activité la semaine passée ou siège vacant, page non publiée"))
+        except Exception as erreur:  # l'exemple ne doit pas empêcher de publier le site
+            print(f"[site] exemple de lettre : ÉCHEC : {type(erreur).__name__} : {erreur}",
+                  file=sys.stderr)
     site.generer(db, args.site, journal=lambda m: print(f"[site] {m}"),
                  api_url=args.api or os.environ.get("MD_API_URL"),
                  editeur=os.environ.get("MD_EDITEUR"), contact=os.environ.get("MD_CONTACT"),
                  hebergeur=os.environ.get("MD_HEBERGEUR"),
-                 sauvegarde_distante=bool(os.environ.get("MD_S3_ESPACE", "").strip()))
+                 sauvegarde_distante=bool(os.environ.get("MD_S3_ESPACE", "").strip()),
+                 exemple=exemple)
     print(f"[site] terminé en {time.time() - debut:.0f} s")
 
 

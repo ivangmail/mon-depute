@@ -291,8 +291,9 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
     if contact:
         pied.append(_p("Une erreur dans cette lettre ? "
                        + _lien("Signalez-la", f"mailto:{contact}") + ".", 13, DOUX))
-    pied.append(_p(_lien("Gérer votre abonnement", lien_gestion) + " · "
-                   + _lien("Vous désabonner", lien_desabonnement), 13, DOUX, "0"))
+    if lien_gestion:  # absent pour l'exemple publié sur le site
+        pied.append(_p(_lien("Gérer votre abonnement", lien_gestion) + " · "
+                       + _lien("Vous désabonner", lien_desabonnement), 13, DOUX, "0"))
     lignes.append(f'<tr><td style="{_style(border_top=f"1px solid {BORD}", padding="14px 0 0")}">'
                   + "".join(pied) + "</td></tr>")
 
