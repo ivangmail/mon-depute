@@ -257,8 +257,11 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
     if l["scrutins"]:
         reperes = (f", médiane de l’Assemblée : {contenu._nombre(l['mediane_tous'])}"
                    if l.get("mediane_tous") is not None else "")
-        tuiles.append((str(l["exprimes"]), f"scrutins sur {l['scrutins']}{reperes}"))
-    tuiles.append((str(l["amendements"]), "amendements déposés en premier signataire"))
+        tuiles.append((str(l["exprimes"]), f"scrutin{'s' if l['exprimes'] > 1 else ''} "
+                                            f"sur {l['scrutins']}{reperes}"))
+    tuiles.append((str(l["amendements"]),
+                   f"amendement{'s' if l['amendements'] > 1 else ''} "
+                   f"déposé{'s' if l['amendements'] > 1 else ''} en premier signataire"))
     cellules = "".join(
         f'<td width="{100 // len(tuiles)}%" valign="top" style="padding:0 {"6px" if i < len(tuiles) - 1 else "0"} 0 0">'
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{CARTE}" '
