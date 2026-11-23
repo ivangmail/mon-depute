@@ -230,8 +230,8 @@ def formulaire_abonnement(nom, d, racine, api_url):
 <label for="abonnement-email">Votre adresse e-mail</label>
 <input id="abonnement-email" name="email" type="email" required autocomplete="email">
 <fieldset><legend>Fréquence</legend>
-<label><input type="radio" name="frequence" value="hebdomadaire" checked> Chaque semaine</label>
-<label><input type="radio" name="frequence" value="mensuelle"> Chaque mois</label></fieldset>
+<label><input type="radio" name="frequence" value="hebdomadaire" checked> Chaque semaine (le mercredi)</label>
+<label><input type="radio" name="frequence" value="mensuelle"> Chaque mois (le 3)</label></fieldset>
 <p><label class="case"><input type="checkbox" name="consentement" value="1" required>
  J’accepte que mon adresse e-mail soit conservée pour recevoir cette lettre.</label></p>
 <p><button type="submit">Recevoir l’activité de {escape(nom)}</button></p>

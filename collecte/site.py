@@ -317,6 +317,11 @@ def methodologie(db):
 <p>La lettre applique les règles de cette page à la période qu’elle couvre, avec quelques
  règles propres.</p>
 <ul>
+<li><b>Période :</b> la lettre hebdomadaire part le mercredi et couvre la semaine du lundi au
+ dimanche précédents ; la lettre mensuelle part le 3 et couvre le mois précédent. Ces deux
+ jours d’écart laissent à l’Assemblée le temps de publier ses données. Tous les abonnés d’une
+ même circonscription reçoivent donc la même lettre. Si une lettre n’a pas pu partir, la
+ suivante reprend là où la précédente s’arrêtait, sur 60 jours au plus.</li>
 <li><b>« L’essentiel » :</b> les scrutins solennels, les motions de censure et les votes sur
  l’ensemble d’un texte ou sur une partie d’un projet de loi de finances. Au-delà de huit, la
  lettre garde les scrutins solennels et les motions de censure, puis les votes qui ont réuni

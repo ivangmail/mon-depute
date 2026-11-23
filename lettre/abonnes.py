@@ -15,13 +15,16 @@ import shutil
 import sqlite3
 import tempfile
 
+# Périodes fixes : la semaine du lundi au dimanche, ou le mois calendaire. Tous les
+# abonnés d'une même circonscription reçoivent ainsi la même lettre.
 FREQUENCES = {"hebdomadaire": 7, "mensuelle": 30}
 DELAI_CONFIRMATION = 7       # jours avant suppression d'une inscription non confirmée
 DELAI_ENTRE_COURRIELS = 3600  # secondes entre deux e-mails de confirmation à la même adresse
 MAX_PAR_ADRESSE = 5           # circonscriptions suivies par une même adresse
 PERIODE_MAX = 60              # jours couverts au plus par une lettre
-# L'Assemblée publie ses données avec retard : une lettre s'arrête deux jours
-# avant son envoi, pour qu'un vote publié tardivement ne soit pas oublié.
+# L'Assemblée publie ses données avec retard : une lettre part deux jours après
+# la fin de sa période (le mercredi pour une semaine, le 3 pour un mois), pour
+# qu'un vote publié tardivement ne soit pas oublié.
 DECALAGE = 2
 COURRIEL = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[^@\s<>\"',;]{2,}$")
 
@@ -173,11 +176,22 @@ def purger(db, instant=None):
     return curseur.rowcount
 
 
-def premiere_periode(frequence, instant=None):
-    """Bornes (début inclus, fin exclue) de la première lettre d'un abonné."""
-    fin = (instant or maintenant()).date() - datetime.timedelta(days=DECALAGE)
-    debut = fin - datetime.timedelta(days=FREQUENCES[frequence])
+def periode(frequence, instant=None):
+    """Dernière période complète terminée depuis au moins DECALAGE jours :
+    (début inclus, fin exclue), au format AAAA-MM-JJ."""
+    repere = (instant or maintenant()).date() - datetime.timedelta(days=DECALAGE)
+    if frequence == "hebdomadaire":
+        fin = repere - datetime.timedelta(days=repere.weekday())   # lundi
+        debut = fin - datetime.timedelta(days=7)
+    else:
+        fin = repere.replace(day=1)
+        debut = (fin - datetime.timedelta(days=1)).replace(day=1)
     return debut.isoformat(), fin.isoformat()
+
+
+def premiere_periode(frequence, instant=None):
+    """Bornes de la première lettre d'un abonné : la dernière période complète."""
+    return periode(frequence, instant)
 
 
 def sauvegarder(chemin_base, dossier, conserver=14, instant=None):
@@ -205,25 +219,27 @@ def sauvegarder(chemin_base, dossier, conserver=14, instant=None):
 
 
 def dus(db, instant=None):
-    """Abonnés actifs dont la période est écoulée, avec les bornes de leur lettre.
+    """Abonnés actifs dont la dernière période complète n'a pas encore été traitée,
+    avec les bornes de leur lettre.
 
     Renvoie une liste de (abonné, début, fin) ; les dates sont au format
-    AAAA-MM-JJ, début inclus et fin exclue. La fin est antérieure de DECALAGE
-    jours à la date d'envoi.
+    AAAA-MM-JJ, début inclus et fin exclue. Normalement la lettre couvre la
+    période fixe (voir periode()). Si la lettre précédente s'arrêtait plus tôt
+    (envoi manqué, changement de fréquence, passage aux périodes fixes), elle
+    reprend là où la précédente s'arrêtait, sans remonter à plus de PERIODE_MAX
+    jours ; elle couvre toujours au moins la période fixe entière.
     """
-    instant = instant or maintenant()
-    fin = instant.date() - datetime.timedelta(days=DECALAGE)
     resultat = []
     for a in db.execute("SELECT * FROM abonnes WHERE statut = 'actif' ORDER BY id"):
-        jours = FREQUENCES[a["frequence"]]
-        if a["dernier_envoi"]:
-            debut = datetime.date.fromisoformat(a["dernier_envoi"])
-            if (fin - debut).days < jours:
-                continue
-            debut = max(debut, fin - datetime.timedelta(days=PERIODE_MAX))
-        else:
-            debut = fin - datetime.timedelta(days=jours)  # voir premiere_periode()
-        resultat.append((a, debut.isoformat(), fin.isoformat()))
+        debut, fin = periode(a["frequence"], instant)
+        dernier = a["dernier_envoi"]
+        if dernier and dernier >= fin:
+            continue
+        if dernier:
+            plancher = (datetime.date.fromisoformat(fin)
+                        - datetime.timedelta(days=PERIODE_MAX)).isoformat()
+            debut = min(debut, max(dernier, plancher))
+        resultat.append((a, debut, fin))
     return resultat
 
 

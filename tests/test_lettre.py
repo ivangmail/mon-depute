@@ -81,17 +81,43 @@ class Abonnes(unittest.TestCase):
             abonnes.confirmer(self.db, a["id"], T0)
             if dernier:
                 abonnes.marquer_envoye(self.db, a["id"], dernier)
-        # Envoi le 05/01/2026 : la période s'arrête deux jours plus tôt, au 03/01 exclu.
-        actif("nouveau@exemple.fr", "hebdomadaire")               # première lettre
-        actif("hebdo-tot@exemple.fr", "hebdomadaire", "2025-12-30")   # 4 jours couverts
-        actif("hebdo-du@exemple.fr", "hebdomadaire", "2025-12-27")    # 7 jours couverts
-        actif("mensuel@exemple.fr", "mensuelle", "2025-12-20")        # 14 jours couverts
-        actif("ancien@exemple.fr", "mensuelle", "2025-01-01")         # très ancien : plafonné
+        # Lundi 05/01/2026 : dernière semaine complète terminée depuis deux jours, celle
+        # du 22/12 au 28/12/2025 ; dernier mois complet, décembre 2025.
+        actif("nouveau@exemple.fr", "hebdomadaire")                    # première lettre
+        actif("hebdo-envoye@exemple.fr", "hebdomadaire", "2025-12-29")  # déjà traitée
+        actif("hebdo-glissant@exemple.fr", "hebdomadaire", "2025-12-27")  # ancien système
+        actif("hebdo-retard@exemple.fr", "hebdomadaire", "2025-12-15")  # envoi manqué
+        actif("mensuel@exemple.fr", "mensuelle", "2025-12-20")
+        actif("mensuel-envoye@exemple.fr", "mensuelle", "2026-01-01")
+        actif("ancien@exemple.fr", "mensuelle", "2025-01-01")          # très ancien : plafonné
         abonnes.inscrire(self.db, "attente@exemple.fr", "10", "2", "hebdomadaire", T0)
         dus = {a["email"]: (debut, fin) for a, debut, fin in abonnes.dus(self.db, T0)}
-        self.assertEqual(dus, {"nouveau@exemple.fr": ("2025-12-27", "2026-01-03"),
-                               "hebdo-du@exemple.fr": ("2025-12-27", "2026-01-03"),
-                               "ancien@exemple.fr": ("2025-11-04", "2026-01-03")})
+        self.assertEqual(dus, {
+            "nouveau@exemple.fr": ("2025-12-22", "2025-12-29"),
+            # La lettre couvre toujours au moins la semaine entière…
+            "hebdo-glissant@exemple.fr": ("2025-12-22", "2025-12-29"),
+            # … et reprend là où la précédente s'arrêtait, s'il y a un trou.
+            "hebdo-retard@exemple.fr": ("2025-12-15", "2025-12-29"),
+            "mensuel@exemple.fr": ("2025-12-01", "2026-01-01"),
+            "ancien@exemple.fr": ("2025-11-02", "2026-01-01")})
+
+    def test_periodes_fixes(self):
+        def le(annee, mois, jour_):
+            return datetime.datetime(annee, mois, jour_, 17, 23, tzinfo=datetime.timezone.utc)
+        # La semaine du lundi 16 au dimanche 22/11/2026 part le mercredi 25/11.
+        self.assertEqual(abonnes.periode("hebdomadaire", le(2026, 11, 25)),
+                         ("2026-11-16", "2026-11-23"))
+        self.assertEqual(abonnes.periode("hebdomadaire", le(2026, 11, 24)),
+                         ("2026-11-09", "2026-11-16"))  # mardi : encore la précédente
+        self.assertEqual(abonnes.periode("hebdomadaire", le(2026, 11, 29)),
+                         ("2026-11-16", "2026-11-23"))  # dimanche : rien de nouveau
+        # Le mois de novembre part le 3 décembre ; passage d'année.
+        self.assertEqual(abonnes.periode("mensuelle", le(2026, 12, 3)),
+                         ("2026-11-01", "2026-12-01"))
+        self.assertEqual(abonnes.periode("mensuelle", le(2026, 12, 2)),
+                         ("2026-10-01", "2026-11-01"))
+        self.assertEqual(abonnes.periode("mensuelle", le(2027, 1, 3)),
+                         ("2026-12-01", "2027-01-01"))
 
 
 class Lettre(unittest.TestCase):
@@ -202,7 +228,7 @@ class Lettre(unittest.TestCase):
 
     def test_premiere_lettre_a_la_confirmation(self):
         from unittest import mock
-        # Confirmation le 17/07/2025 : la première lettre couvre du 08/07 au 14/07.
+        # Confirmation le jeudi 17/07/2025 : la première lettre couvre la semaine du 07/07.
         jour_j = datetime.datetime(2025, 7, 17, 8, 0, tzinfo=datetime.timezone.utc)
         self.demande()
         lien = [m for m in self.courriels()[0].get_content().split()
@@ -212,8 +238,8 @@ class Lettre(unittest.TestCase):
             self.assertIn("première lettre vient de partir", page)
             messages = self.courriels()
             self.assertEqual(len(messages), 2)
-            self.assertIn("du 08/07/2025 au 14/07/2025", messages[1]["Subject"])
-            self.assertEqual(self.lignes()[0]["dernier_envoi"], "2025-07-15")
+            self.assertIn("du 07/07/2025 au 13/07/2025", messages[1]["Subject"])
+            self.assertEqual(self.lignes()[0]["dernier_envoi"], "2025-07-14")
             # Rouvrir le lien ne renvoie pas la lettre, et l'envoi quotidien non plus.
             _, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
             self.assertNotIn("vient de partir", page)
@@ -228,8 +254,10 @@ class Lettre(unittest.TestCase):
         # Aujourd'hui, le jeu d'essai (2025) n'a aucune activité récente.
         statut, _, page = self.appeler("GET", "/api/confirmer", requete=lien)
         self.assertEqual(statut, "200 OK")
-        self.assertIn("votre première lettre partira", page)
-        self.assertIsNone(self.lignes()[0]["dernier_envoi"])
+        self.assertIn("votre première lettre partira avec la prochaine", page)
+        # La période sans activité est marquée comme traitée : la lettre suivante
+        # couvrira la période fixe suivante, et non deux périodes d'un coup.
+        self.assertEqual(self.lignes()[0]["dernier_envoi"], abonnes.periode("hebdomadaire")[1])
         # Une panne d'envoi ne fait pas échouer la confirmation.
         self.demande(email="autre@exemple.fr")
         lien = [m for m in self.courriels()[-1].get_content().split()
@@ -298,13 +326,13 @@ class Lettre(unittest.TestCase):
             abonnes.confirmer(db, a["id"], T0)
         db.close()
         journal = []
-        # Envoi le 17/07/2025, donc semaine du 08/07 au 14/07 : scrutins S2, S3 et S4.
+        # Jeudi 17/07/2025 : semaine du lundi 07/07 au dimanche 13/07 (scrutins S2, S3, S4).
         instant = datetime.datetime(2025, 7, 17, 8, 0, tzinfo=datetime.timezone.utc)
         self.assertEqual(envoyer(self.config, instant=instant, journal=journal.append),
                          (1, 0, 1, 0))
         message = self.courriels()[0]
         self.assertEqual(message["To"], "ada@exemple.fr")
-        self.assertIn("du 08/07/2025 au 14/07/2025", message["Subject"])
+        self.assertIn("du 07/07/2025 au 13/07/2025", message["Subject"])
         # Dans le fichier tel qu'il part : le lien ne doit être ni replié ni encodé.
         dossier = self.config.dossier_courriels
         with open(os.path.join(dossier, sorted(os.listdir(dossier))[0]), encoding="utf-8") as f:

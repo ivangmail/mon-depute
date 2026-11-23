@@ -18,7 +18,8 @@ TAILLE_MAX = 4096
 LIMITE_PAR_IP = 10        # demandes d'abonnement par heure et par adresse IP
 REPONSE_NEUTRE = ("Si cette adresse est valide, un e-mail vient de lui être envoyé. "
                   "Cliquez sur le lien qu'il contient pour confirmer votre abonnement.")
-LIBELLES = {"hebdomadaire": "chaque semaine", "mensuelle": "chaque mois"}
+LIBELLES = {"hebdomadaire": "chaque mercredi, pour la semaine du lundi au dimanche précédents,",
+            "mensuelle": "le 3 de chaque mois, pour le mois précédent,"}
 
 
 class Application:
@@ -165,8 +166,8 @@ class Application:
             db.close()
         suite = {
             "envoyee": "Votre première lettre vient de partir : regardez votre boîte de réception.",
-            "vide": "Aucune activité n'a été enregistrée pour votre député ces derniers jours : "
-                    "votre première lettre partira dès qu'il y en aura.",
+            "vide": "Aucune activité n'a été enregistrée pour votre député pendant la dernière "
+                    "période : votre première lettre partira avec la prochaine.",
             "vacant": "Le siège de votre circonscription est actuellement vacant : vous "
                       "recevrez une lettre quand un député y siégera.",
         }.get(premiere, "")
@@ -211,7 +212,7 @@ class Application:
             db.close()
         choix = "".join(
             f'<p><label><input type="radio" name="frequence" value="{f}"'
-            f'{" checked" if abonne["frequence"] == f else ""}> {escape(LIBELLES[f].capitalize())}'
+            f'{" checked" if abonne["frequence"] == f else ""}> {escape(LIBELLES[f].rstrip(",").capitalize())}'
             "</label></p>" for f in abonnes.FREQUENCES)
         j = escape(jeton)
         return self._page("Votre abonnement", f"""{message}
