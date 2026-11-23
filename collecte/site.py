@@ -331,6 +331,17 @@ def methodologie(db):
  jours d’écart laissent à l’Assemblée le temps de publier ses données. Tous les abonnés d’une
  même circonscription reçoivent donc la même lettre. Si une lettre n’a pas pu partir, la
  suivante reprend là où la précédente s’arrêtait, sur 60 jours au plus.</li>
+<li><b>« En bref » :</b> trois lignes en tête de lettre. La première cite le vote le plus
+ important de la période : d’abord les scrutins solennels et les motions de censure, puis celui
+ qui a réuni le plus de députés ; l’intitulé est celui du scrutin, suivi de son résultat. La
+ deuxième donne le nombre de scrutins publics auxquels le député a pris part, avec la médiane
+ de l’Assemblée. La troisième résume le reste de son activité de la période (amendements,
+ interventions, questions, propositions de loi, réunions de commission). Ces lignes sont
+ produites par des règles fixes, sans rédaction automatique.</li>
+<li><b>Thèmes mis en avant :</b> depuis la page de gestion de son abonnement, chacun peut
+ choisir des thèmes. Les textes de ces thèmes sont alors présentés en premier dans chaque
+ rubrique, et signalés comme tels. Rien n’est retiré : la lettre reste complète, et tous les
+ abonnés d’une circonscription reçoivent les mêmes informations.</li>
 <li><b>« L’essentiel » :</b> les scrutins solennels, les motions de censure et les votes sur
  l’ensemble d’un texte ou sur une partie d’un projet de loi de finances. Au-delà de huit, la
  lettre garde les scrutins solennels et les motions de censure, puis les votes qui ont réuni
@@ -487,6 +498,8 @@ SOURCES_POURQUOI = {
     "constitution": ("Constitution du 4 octobre 1958, texte en vigueur (Conseil constitutionnel)",
                      "https://www.conseil-constitutionnel.fr/le-bloc-de-constitutionnalite/"
                      "texte-integral-de-la-constitution-du-4-octobre-1958-en-vigueur"),
+    "senat_lois": ("Sénat, bilan annuel de l’application des lois, session 2024-2025",
+                   "https://www.senat.fr/rap/r25-802/r25-802.html"),
     "duree_mandat": ("Assemblée nationale, fiche « L’élection des députés » (article L.O. 121 du "
                      "code électoral)",
                      "https://questions.assemblee-nationale.fr/contenu/telechargement/625543/file/"
@@ -494,20 +507,27 @@ SOURCES_POURQUOI = {
 }
 
 
-def lois_session(db, debut="2024-10-01", fin="2025-07-01"):
-    """Lois promulguées pendant une session : (total, issues d'une proposition de loi,
-    conventions internationales). Les lois organiques, dont le dossier ne dit pas s'il
-    s'agit d'un projet ou d'une proposition, ne sont pas comptées comme propositions."""
-    lignes = db.execute("""
-        SELECT d.procedure, count(DISTINCT e.dossier_uid) FROM etapes e
-        JOIN dossiers d ON d.uid = e.dossier_uid
-        WHERE e.code = 'PROM-PUB' AND e.date >= ? AND e.date < ? GROUP BY d.procedure""",
-                        (debut, fin)).fetchall() if any(
-        r[0] == "etapes" for r in db.execute("SELECT name FROM sqlite_master")) else []
-    total = sum(n for _, n in lignes)
-    propositions = sum(n for p, n in lignes if (p or "").startswith("Proposition de loi"))
-    conventions = sum(n for p, n in lignes if "traités" in (p or ""))
-    return total, propositions, conventions
+EXEMPLE_SCRUTIN = 8430  # vote solennel sur la protection des enfants, 21/07/2026
+
+
+def _exemple(db):
+    """Paragraphe « Un exemple », lu dans la base : aucun chiffre écrit à la main.
+    Vide si le scrutin manque ou est incomplet."""
+    try:
+        s = db.execute("SELECT numero, date, titre, nb_pour, nb_contre, nb_abstentions"
+                       " FROM scrutins WHERE numero = ?", (EXEMPLE_SCRUTIN,)).fetchone()
+    except Exception:
+        return ""
+    if not s or None in tuple(s):
+        return ""
+    numero, date_vote, titre, pour, contre, abstentions = tuple(s)
+    sujet = fiche.majuscule(titre or "").rstrip(". ")
+    sujet = (sujet[0].lower() + sujet[1:]).replace("'", "’")
+    return (f"<p><b>Un exemple.</b> Le {fiche.jour(date_vote)}, sur {escape(sujet)}, {pour} "
+            f"députés ont voté pour, {contre} contre, et {abstentions} se sont abstenus "
+            f"(<a href=\"{URL_AN}/scrutins/{numero}\">scrutin n° {numero}</a>). Comment a voté "
+            "le vôtre ? Sa fiche vous le dit, et vous pouvez lui écrire pour lui demander "
+            "pourquoi.</p>")
 
 
 def pourquoi(db):
@@ -523,17 +543,6 @@ def pourquoi(db):
     def dossier(uid, texte):
         return f'<a href="{URL_AN}/dossiers/{uid}">{escape(texte)}</a>'
 
-    total, propositions, conventions = lois_session(db)
-    if total and total > conventions:
-        part = round(100 * propositions / total)
-        hors = round(100 * propositions / (total - conventions))
-        lois = (f"Sur les {total} lois promulguées pendant la session ordinaire 2024-2025 (du "
-                f"01/10/2024 au 30/06/2025), au moins {propositions} venaient d’une proposition "
-                f"de loi, soit {part} % ; sans compter les {conventions} lois qui autorisent une "
-                f"convention internationale, {hors} %. Calcul fait par ce site sur les dossiers "
-                "législatifs publiés par l’Assemblée nationale.")
-    else:
-        lois = ""
     sources = "".join(f"<li>{source(c)}</li>" for c in SOURCES_POURQUOI)
     return f"""
 <h1>Pourquoi suivre son député ?</h1>
@@ -567,7 +576,9 @@ def pourquoi(db):
 
 <h2>Ce que font les députés</h2>
 <p>Les députés proposent, amendent et votent la loi, et contrôlent le Gouvernement. Les textes
- d’origine parlementaire occupent une large place. {escape(lois)}</p>
+ d’origine parlementaire occupent une large place : selon le Sénat, 45 des 56 lois adoptées
+ définitivement pendant la session 2024-2025, soit 80 %, étaient d’origine parlementaire, contre
+ 58 % la session précédente ({source("senat_lois")}).</p>
 <p>Certaines décisions, dont les budgets, ont en revanche été adoptées sans vote sur le texte. Ce
  que les députés font de leur mandat mérite donc d’être suivi.</p>
 
@@ -582,10 +593,7 @@ def pourquoi(db):
 <li>dans une lettre, chaque semaine ou chaque mois : les votes de la période, dont les votes
  serrés, l’avancement des textes votés et les textes inscrits à l’ordre du jour.</li>
 </ul>
-<p><b>Un exemple.</b> Le 21/07/2026, sur l’ensemble du projet de loi relatif à la protection des
- enfants, 378 députés ont voté pour, 7 contre, et 173 se sont abstenus
- ({scrutin(8430, "scrutin n° 8430")}). Comment a voté le vôtre ? Sa fiche vous le dit, et vous
- pouvez lui écrire pour lui demander pourquoi.</p>
+{_exemple(db)}
 
 <h2>Lui demander des comptes</h2>
 <p>Un député représente la Nation tout entière : « Tout mandat impératif est nul » (article 27 de
@@ -667,8 +675,8 @@ def confidentialite(api_url, editeur=None, contact=None, sauvegarde_distante=Fal
     lettre = """
 <h2>La lettre d’information</h2>
 <p>Si vous vous abonnez à l’activité d’un député, sont conservées : votre adresse e-mail, la
- circonscription suivie et la fréquence choisie. Rien d’autre : ni nom, ni adresse postale,
- ni adresse IP.</p>
+ circonscription suivie, la fréquence choisie et, si vous en avez choisi, les thèmes à mettre en
+ avant. Rien d’autre : ni nom, ni adresse postale, ni adresse IP.</p>
 <ul>
 <li><b>Finalité :</b> vous envoyer cette lettre, et rien d’autre. Votre adresse n’est ni cédée,
  ni utilisée pour un autre envoi.</li>
@@ -680,6 +688,8 @@ def confidentialite(api_url, editeur=None, contact=None, sauvegarde_distante=Fal
  la base ; elle disparaît des copies de sauvegarde au plus tard 14 jours après.</li>
 <li><b>Sauvegarde :</b> une copie de la base est faite chaque jour, et seules les 14 dernières
  sont gardées, sur le serveur{distante}.</li>
+<li><b>Statistiques :</b> le site compte, jour par jour, le nombre d’inscriptions, de
+ confirmations et de désabonnements. Ces nombres ne sont reliés à aucune adresse.</li>
 <li><b>Envoi :</b> les lettres sont acheminées par un prestataire d’envoi d’e-mails, qui reçoit
  votre adresse pour cette seule opération.</li>
 </ul>

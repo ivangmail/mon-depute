@@ -192,7 +192,7 @@ class Lettre(unittest.TestCase):
         jeton = abonnes.jeton(SECRET, abonne["id"], "gerer")
         statut, _, page = self.appeler("POST", "/api/gerer", f"jeton={jeton}&frequence=mensuelle",
                                        json_=False)
-        self.assertIn("Fréquence enregistrée", page)
+        self.assertIn("Préférences enregistrées", page)
         self.assertEqual(self.lignes()[0]["frequence"], "mensuelle")
         # Ouvrir le lien de désabonnement ne supprime rien : il faut un envoi explicite.
         _, _, page = self.appeler("GET", "/api/desabonnement", requete=f"jeton={jeton}")
@@ -617,8 +617,118 @@ class Lettre(unittest.TestCase):
         messages = self.courriels()
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["To"], "editeur@exemple.fr")
-        self.assertIn("3 intitulés à décider avant mercredi", messages[0]["Subject"])
-        self.assertIn("- Texte voté (D1)", messages[0].get_content())
+        self.assertEqual(messages[0]["Subject"], "Mon député : point du lundi, 3 intitulés à décider")
+        contenu_point = messages[0].get_content()
+        self.assertIn("- Texte voté (D1)", contenu_point)
+        self.assertIn("ABONNEMENTS (nombres seulement, aucune adresse)", contenu_point)
+        self.assertIn("- Abonnés actifs : 0", contenu_point)
+        self.assertNotIn("@exemple.fr", contenu_point.replace("editeur@exemple.fr", ""))
+
+    def test_bilan_des_abonnements(self):
+        db = abonnes.ouvrir(self.config.abonnes)
+        a, _ = abonnes.inscrire(db, "ada@exemple.fr", "10", "2", "hebdomadaire", T0)
+        abonnes.confirmer(db, a["id"], T0)
+        abonnes.confirmer(db, a["id"], T0)            # rouvrir le lien ne compte pas deux fois
+        b, _ = abonnes.inscrire(db, "leo@exemple.fr", "10", "2", "mensuelle", T0)
+        c, _ = abonnes.inscrire(db, "zoe@exemple.fr", "10", "2", "hebdomadaire", T0)
+        abonnes.confirmer(db, c["id"], T0)
+        abonnes.choisir_themes(db, c["id"], ["Défense"])
+        abonnes.supprimer(db, c["id"], T0)
+        abonnes.supprimer(db, c["id"], T0)            # déjà effacé : pas compté
+        bilan = abonnes.bilan(db, T0 + datetime.timedelta(days=1))
+        self.assertEqual((bilan["actifs"], bilan["par_frequence"], bilan["en_attente"]),
+                         (1, {"hebdomadaire": 1}, 1))
+        self.assertEqual((bilan["inscription"], bilan["confirmation"], bilan["desabonnement"]),
+                         (3, 2, 1))
+        self.assertEqual(abonnes.bilan(db, T0 + datetime.timedelta(days=30))["inscription"], 0)
+        # Les compteurs ne contiennent aucune adresse.
+        self.assertEqual({tuple(r)[1] for r in db.execute("SELECT * FROM compteurs")},
+                         {"inscription", "confirmation", "desabonnement"})
+        db.close()
+
+    def test_en_bref(self):
+        import sqlite3
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
+        db.close()
+        lignes = contenu.en_bref(lettre)
+        # S2 et S4 sont solennels ; à nombre de votants égal, le plus récent l'emporte.
+        self.assertEqual(lignes[0], "A voté pour le texte C — résultat : adopté.")
+        self.assertEqual(lignes[1], "A pris part à 2 des 3 scrutins publics (médiane de "
+                                    "l'Assemblée : 1,5).")
+        self.assertEqual(lignes[2], "Hors votes : aucune intervention en séance, aucun "
+                                    "amendement ni question enregistrés pendant la période.")
+        _, texte, html = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
+        self.assertTrue(texte.split("\n\n", 1)[1].startswith("EN BREF\n- A voté pour le texte C"))
+        self.assertIn(contenu.CE_QUI_NEST_PAS_MESURE, texte)
+        self.assertIn("A pris part à 2 des 3 scrutins publics", html)
+
+    def test_themes_mis_en_avant(self):
+        votes = [{"dossier_uid": "D1", "texte": "budget", "position": "pour"}] * 3 + \
+                [{"dossier_uid": "D2", "texte": "santé", "position": "contre"}]
+        l = {"autres_votes": votes, "scrutins_par_texte": [], "themes":
+             {"D1": "Budget et fiscalité", "D2": "Santé, travail et solidarités"},
+             "themes_agenda": {"D3": "Défense"},
+             "amendements_par_texte": [("Texte budget", 3, "3 rejetés", "D1"),
+                                       ("Texte santé", 1, "1 adopté", "D2")],
+             "amendements_exemples": [{"texte": "Texte budget", "numero": "1"},
+                                      {"texte": "Texte santé", "numero": "2"}]}
+        self.assertEqual([g["uid"] for g in contenu.textes_votes(l)], ["D1", "D2"])
+        self.assertIs(contenu.mettre_en_avant(l, None), l)
+        avant = contenu.mettre_en_avant(l, ["Santé, travail et solidarités", "Défense"])
+        self.assertEqual([g["uid"] for g in contenu.textes_votes(avant)], ["D2", "D1"])
+        self.assertEqual([t[3] for t in avant["amendements_par_texte"]], ["D2", "D1"])
+        self.assertEqual([a["numero"] for a in avant["amendements_exemples"]], ["2", "1"])
+        self.assertEqual(avant["dossiers_en_avant"], {"D2", "D3"})
+        self.assertEqual(avant["themes_choisis"], ["Santé, travail et solidarités", "Défense"])
+        # Rien n'est retiré, et la lettre commune n'est pas modifiée.
+        self.assertEqual(len(avant["amendements_par_texte"]), 2)
+        self.assertEqual([t[3] for t in l["amendements_par_texte"]], ["D1", "D2"])
+
+    def test_choix_des_themes(self):
+        import json
+        from collecte import themes
+        db = abonnes.ouvrir(self.config.abonnes)
+        a, _ = abonnes.inscrire(db, "ada@exemple.fr", "10", "2", "hebdomadaire", T0)
+        abonnes.confirmer(db, a["id"], T0)
+        self.assertIsNone(abonnes.themes_de(abonnes.lire(db, a["id"])))
+        db.close()
+        jeton = abonnes.jeton(SECRET, a["id"], "gerer")
+        _, _, page = self.appeler("GET", "/api/gerer", requete=f"jeton={jeton}")
+        self.assertEqual(page.count('type="checkbox" name="themes"'), len(themes.THEMES))
+        self.assertEqual(page.count(" checked>"), 1)   # la fréquence seulement
+        self.assertIn("Rien n'est retiré", page)
+        corps = (f"jeton={jeton}&frequence=hebdomadaire&choix_themes=1"
+                 "&themes=D%C3%A9fense&themes=Affaires+%C3%A9trang%C3%A8res")
+        _, _, page = self.appeler("POST", "/api/gerer", corps, json_=False)
+        self.assertIn("Préférences enregistrées", page)
+        self.assertEqual(json.loads(self.lignes()[0]["themes"]), ["Affaires étrangères", "Défense"])
+        # Une fréquence envoyée seule ne touche pas aux thèmes.
+        self.appeler("POST", "/api/gerer", f"jeton={jeton}&frequence=mensuelle", json_=False)
+        self.assertIsNotNone(self.lignes()[0]["themes"])
+        # Rien coché : aucun thème en avant ; un thème inconnu est refusé.
+        self.appeler("POST", "/api/gerer", f"jeton={jeton}&frequence=mensuelle&choix_themes=1",
+                     json_=False)
+        self.assertIsNone(self.lignes()[0]["themes"])
+        statut, _, _ = self.appeler("POST", "/api/gerer", f"jeton={jeton}&frequence=mensuelle"
+                                    "&choix_themes=1&themes=Inconnu", json_=False)
+        self.assertEqual(statut, "400 Bad Request")
+
+    def test_base_des_abonnes_sans_colonne_themes(self):
+        import sqlite3
+        ancienne = sqlite3.connect(self.config.abonnes)
+        ancienne.execute("CREATE TABLE abonnes (id INTEGER PRIMARY KEY, email TEXT NOT NULL,"
+                         " num_departement TEXT NOT NULL, num_circo TEXT NOT NULL, frequence TEXT"
+                         " NOT NULL, statut TEXT NOT NULL, cree_le TEXT NOT NULL, confirme_le"
+                         " TEXT, dernier_envoi TEXT, dernier_courriel_le TEXT,"
+                         " UNIQUE (email, num_departement, num_circo))")
+        ancienne.execute("INSERT INTO abonnes (email, num_departement, num_circo, frequence,"
+                         " statut, cree_le) VALUES ('a@b.fr', '10', '2', 'hebdomadaire', 'actif',"
+                         " 'x')")
+        ancienne.commit()
+        ancienne.close()
+        self.assertIsNone(self.lignes()[0]["themes"])
 
     def test_position_du_groupe(self):
         self.assertEqual(contenu.position_du_groupe({"pour": 7, "contre": 3}),

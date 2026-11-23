@@ -427,25 +427,23 @@ class MentionsLegales(unittest.TestCase):
             # Page « Pourquoi », liée depuis la barre de navigation de chaque page.
             pourquoi = pathlib.Path(avec, "pourquoi.html").read_text("utf-8")
             self.assertIn("<h1>Pourquoi suivre son député ?</h1>", pourquoi)
-            self.assertIn("/scrutins/8430", pourquoi)
+            self.assertIn("senat.fr/rap/r25-802", pourquoi)
             self.assertIn("Tout mandat impératif est nul", pourquoi)
             self.assertIn('href="../pourquoi.html"', fiche_html)
 
-    def test_lois_de_la_session(self):
+    def test_exemple_lu_dans_la_base(self):
         with tempfile.TemporaryDirectory() as dossier:
-            db = base.ouvrir(os.path.join(dossier, "l.sqlite"))
-            db.executemany("INSERT INTO dossiers (uid, procedure) VALUES (?,?)", [
-                ("D1", "Proposition de loi ordinaire"), ("D2", "Proposition de loi ordinaire"),
-                ("D3", "Projet de loi ordinaire"),
-                ("D4", "Projet de ratification des traités et conventions"),
-                ("D5", "Proposition de loi ordinaire")])
-            db.executemany("INSERT INTO etapes VALUES (?, 1, 'PROM-PUB', ?, NULL, NULL)", [
-                ("D1", "2024-11-02"), ("D2", "2025-06-30"), ("D3", "2025-03-01"),
-                ("D4", "2025-01-15"), ("D5", "2025-07-15")])   # D5 : après la session
-            self.assertEqual(site.lois_session(db), (4, 2, 1))
-            # Sans aucune loi, la page n'affiche pas de pourcentage.
-            self.assertNotIn(" %", site.pourquoi(base.ouvrir(os.path.join(dossier, "v.sqlite")))
-                             .split("Ce que font les députés")[1].split("</p>")[0])
+            db = base.ouvrir(os.path.join(dossier, "e.sqlite"))
+            self.assertNotIn("Un exemple", site.pourquoi(db))     # scrutin absent : omis
+            db.execute("INSERT INTO scrutins (uid, numero, date, titre, nb_pour, nb_contre,"
+                       " nb_abstentions) VALUES ('S', 8430, '2026-07-21', 'l''ensemble du projet"
+                       " de loi relatif à la protection des enfants (première lecture).', 378,"
+                       " 7, 173)")
+            page = site.pourquoi(db)
+            self.assertIn("Le 21/07/2026, sur l’ensemble du projet de loi relatif à la "
+                          "protection des enfants (première lecture), 378 députés ont voté pour, "
+                          "7 contre, et 173 se sont abstenus", page)
+            self.assertIn("80 %", page)
             db.close()
 
 

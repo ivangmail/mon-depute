@@ -9,7 +9,8 @@
     python -m lettre sauvegardes        liste les copies hors du serveur
     python -m lettre restaurer FICHIER  écrit dans FICHIER la base de la copie la plus récente
     python -m lettre libelles           textes à venir sans intitulé en langage courant ;
-                                        --notifier : prévient l'éditeur par e-mail le lundi
+                                        --notifier : le lundi, point de la semaine à l'éditeur
+                                        (bilan des abonnements, intitulés à décider)
 
 La configuration vient des variables d'environnement MD_* (voir lettre/config.py).
 """
@@ -94,8 +95,10 @@ JOUR_NOTIFICATION = 0  # lundi : deux jours avant l'envoi des lettres hebdomadai
 
 def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
     """Liste dans le journal les textes qui vont apparaître dans les lettres sans
-    décision sur leur intitulé. Avec notifier, le lundi, écrit aussi à l'éditeur
-    (MD_CONTACT) s'il y en a. Renvoie le nombre de textes en attente."""
+    décision sur leur intitulé. Avec notifier, le lundi, envoie à l'éditeur
+    (MD_CONTACT) le point de la semaine : bilan des abonnements, en nombres
+    seulement, et intitulés à décider s'il y en a. Renvoie le nombre de textes
+    en attente d'une décision."""
     aujourdhui = aujourdhui or datetime.date.today().isoformat()
     donnees = sqlite3.connect(f"file:{cfg.donnees}?mode=ro", uri=True)
     try:
@@ -108,26 +111,46 @@ def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
         journal(f"Intitulé proposé, pas encore validé : {uid} · {titre}")
     journal(f"{len(sans)} textes sans intitulé, {len(proposes)} intitulés à valider")
     lundi = datetime.date.fromisoformat(aujourdhui).weekday() == JOUR_NOTIFICATION
-    if notifier and lundi and (sans or proposes) and cfg.contact:
-        lignes = ["Bonjour,", "",
-                  "Ces textes vont apparaître dans les lettres de cette semaine, votés depuis "
-                  "deux semaines ou inscrits à l'ordre du jour, sans intitulé validé :", ""]
-        if sans:
-            lignes += ["Sans intitulé en langage courant :"]
-            lignes += [f"- {titre} ({uid})" for uid, titre in sans] + [""]
-        if proposes:
-            lignes += ["Intitulés proposés, en attente de votre validation :"]
-            lignes += [f"- {titre} ({uid})" for uid, titre in proposes] + [""]
-        lignes += ["Pour en obtenir, demandez à Claude : « propose les libellés des nouveaux "
-                   "textes ». Un texte dont le titre est déjà clair peut être marqué « titre "
-                   "officiel ». En attendant, les lettres affichent le titre officiel : rien "
-                   "n'est publié sans votre validation.",
-                   "", "Les lettres hebdomadaires partent mercredi."]
-        courriel.envoyer(cfg, courriel.construire(
-            cfg, cfg.contact,
-            f"Mon député : {len(sans) + len(proposes)} intitulés à décider avant mercredi",
-            "\n".join(lignes)))
-        journal(f"Éditeur prévenu par e-mail ({cfg.contact})")
+    if notifier and lundi and cfg.contact:
+        db = abonnes.ouvrir(cfg.abonnes)
+        try:
+            instant = datetime.datetime.combine(datetime.date.fromisoformat(aujourdhui),
+                                                datetime.time(12),
+                                                tzinfo=datetime.timezone.utc)
+            b = abonnes.bilan(db, instant)
+        finally:
+            db.close()
+        frequences = ", ".join(f"{n} {f}" for f, n in sorted(b["par_frequence"].items()))
+        lignes = ["Bonjour,", "", "Voici le point de la semaine.", "",
+                  "ABONNEMENTS (nombres seulement, aucune adresse)",
+                  f"- Abonnés actifs : {b['actifs']}" + (f" ({frequences})" if frequences else ""),
+                  f"- Dont ayant mis des thèmes en avant : {b['themes_choisis']}",
+                  f"- Inscriptions en attente de confirmation : {b['en_attente']}",
+                  f"- Ces {b['jours']} derniers jours : {b['inscription']} inscriptions, "
+                  f"{b['confirmation']} confirmations, {b['desabonnement']} désabonnements", ""]
+        if sans or proposes:
+            lignes += ["INTITULÉS À DÉCIDER AVANT MERCREDI",
+                       "Ces textes vont apparaître dans les lettres de cette semaine, votés "
+                       "depuis deux semaines ou inscrits à l'ordre du jour, sans intitulé "
+                       "validé :", ""]
+            if sans:
+                lignes += ["Sans intitulé en langage courant :"]
+                lignes += [f"- {titre} ({uid})" for uid, titre in sans] + [""]
+            if proposes:
+                lignes += ["Intitulés proposés, en attente de votre validation :"]
+                lignes += [f"- {titre} ({uid})" for uid, titre in proposes] + [""]
+            lignes += ["Pour en obtenir, demandez à Claude : « propose les libellés des "
+                       "nouveaux textes ». Un texte dont le titre est déjà clair peut être "
+                       "marqué « titre officiel ». En attendant, les lettres affichent le titre "
+                       "officiel : rien n'est publié sans votre validation.", ""]
+        else:
+            lignes += ["INTITULÉS : rien à décider cette semaine.", ""]
+        lignes += ["Les lettres hebdomadaires partent mercredi."]
+        en_attente = len(sans) + len(proposes)
+        sujet = (f"Mon député : point du lundi, {en_attente} intitulés à décider" if en_attente
+                 else "Mon député : point du lundi")
+        courriel.envoyer(cfg, courriel.construire(cfg, cfg.contact, sujet, "\n".join(lignes)))
+        journal(f"Point du lundi envoyé à l'éditeur ({cfg.contact})")
     return len(sans) + len(proposes)
 
 

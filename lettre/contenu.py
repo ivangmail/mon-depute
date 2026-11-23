@@ -38,6 +38,9 @@ MAJEUR = f"""(s.type_vote IN ('{indicateurs.SOLENNEL}', '{MOTION}')
     OR replace(s.titre, '’', char(39)) LIKE 'l' || char(39) || 'ensemble%'
     OR s.titre LIKE 'la première partie%' OR s.titre LIKE 'la deuxième partie%'
     OR s.titre LIKE 'la troisième partie%' OR s.titre LIKE 'la quatrième partie%')"""
+CE_QUI_NEST_PAS_MESURE = ("Ces décomptes ne couvrent pas tout le travail d'un député : ni sa "
+                          "circonscription, ni les réunions de son groupe, ni ses rendez-vous "
+                          "et auditions hors commission.")
 ABSENCE = ("Une absence à un vote peut avoir une raison légitime (autre réunion au même "
            "moment, déplacement, maladie) : elle ne suffit pas à juger du travail d'un député.")
 
@@ -109,6 +112,77 @@ def votes_par_texte(votes, scrutins=()):
             morceaux.append(_pluriel(g["sans"], "scrutin") + " sans participation")
         g["decompte"] = ", ".join(morceaux)
     return sorted(groupes.values(), key=lambda g: (-g["total"], -g["sans"], g["texte"]))
+
+
+def textes_votes(l):
+    """Détail des votes par texte, avec en premier les textes des thèmes mis en
+    avant par l'abonné (voir mettre_en_avant)."""
+    groupes = votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
+    avant = l.get("dossiers_en_avant") or set()
+    return sorted(groupes, key=lambda g: g["uid"] not in avant)  # tri stable
+
+
+def mettre_en_avant(l, choisis):
+    """Lettre où les textes des thèmes choisis par l'abonné passent en premier.
+
+    La lettre est composée une fois par circonscription ; cette fonction n'en
+    retire rien, elle change seulement l'ordre de présentation, au moment de la
+    mise en page, et rappelle les thèmes choisis en tête de lettre."""
+    if not l or not choisis:
+        return l
+    choisis = set(choisis)
+    noms = {**(l.get("themes_agenda") or {}), **(l.get("themes") or {})}
+    avant = {d for d, t in noms.items() if t in choisis}
+    f = dict(l)
+    f["themes_choisis"] = [t for t in themes.THEMES if t in choisis]
+    f["dossiers_en_avant"] = avant
+    f["amendements_par_texte"] = sorted(l.get("amendements_par_texte") or [],
+                                        key=lambda t: t[3] not in avant)
+    dossier_du_texte = {t[0]: t[3] for t in l.get("amendements_par_texte") or []}
+    f["amendements_exemples"] = sorted(l.get("amendements_exemples") or [],
+                                       key=lambda a: dossier_du_texte.get(a["texte"]) not in avant)
+    return f
+
+
+def en_bref(l):
+    """Trois lignes au plus, selon des règles fixes : le vote le plus important de la
+    période, la participation comparée à la médiane, l'activité hors votes."""
+    il, e = ("Elle", "e") if l["feminin"] else ("Il", "")
+    lignes = []
+    if l["majeurs"]:
+        m = l["majeurs"][0] if len(l["majeurs"]) == 1 else max(
+            l["majeurs"], key=lambda m: (m["type_vote"] in (indicateurs.SOLENNEL, MOTION),
+                                         m.get("nb_votants") or 0, m["date"]))
+        # L'intitulé exact du scrutin (« la première partie du projet de loi… ») : plus
+        # précis que le libellé du texte, et déjà muni de son article.
+        sujet = intitule(m["titre"])
+        sujet = sujet[0].lower() + sujet[1:]
+        if m["censure"]:
+            debut = "A voté" if m["position"] == "pour" else "N'a pas voté"
+            lignes.append(f"{debut} {sujet} — résultat : {m['sort']}.")
+        elif m["position"]:
+            verbe = {"pour": "A voté pour", "contre": "A voté contre",
+                     "abstention": f"S'est abstenu{e} sur"}[m["position"]]
+            lignes.append(f"{verbe} {sujet} — résultat : {m['sort']}.")
+        else:
+            lignes.append(f"N'a pas pris part au vote sur {sujet} — résultat : {m['sort']}.")
+    if l["scrutins"]:
+        mediane = (f" (médiane de l'Assemblée : {_nombre(l['mediane_tous'])})"
+                   if l.get("mediane_tous") is not None else "")
+        lignes.append(f"A pris part à {l['exprimes']} des "
+                      f"{_pluriel(l['scrutins'], 'scrutin public', 'scrutins publics')}{mediane}.")
+    activites = [_pluriel(n, *mots) for n, mots in (
+        (l["amendements"], ("amendement déposé", "amendements déposés")),
+        (l["interventions"], ("intervention en séance", "interventions en séance")),
+        (len(l["questions"]), ("question au Gouvernement", "questions au Gouvernement")),
+        (len(l.get("propositions") or []), ("proposition de loi déposée",
+                                            "propositions de loi déposées")),
+        (l["commission_present"], ("réunion de commission", "réunions de commission")),
+    ) if n]
+    lignes.append("Hors votes : " + ", ".join(activites) + "." if activites else
+                  "Hors votes : aucune intervention en séance, aucun amendement ni question "
+                  "enregistrés pendant la période.")
+    return lignes
 
 
 def position_du_groupe(decompte):
@@ -340,10 +414,11 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
         m["ecart"] = (abs(s["nb_pour"] - s["nb_contre"])
                       if not m["censure"] and s["nb_pour"] is not None
                       and s["nb_contre"] is not None else None)
-        m["groupe"] = ""
+        m["groupe"], m["ligne"] = "", None
         if not m["censure"] and not sans_groupe:
-            m["groupe"] = position_du_groupe(_decompte_groupe(
-                db, s["uid"], s["groupe_uid"] or d["groupe_uid"]))[1]
+            m["ligne"], m["groupe"] = position_du_groupe(_decompte_groupe(
+                db, s["uid"], s["groupe_uid"] or d["groupe_uid"]))
+        m["contre_groupe"] = bool(m["ligne"] and m["position"] and m["position"] != m["ligne"])
         majeurs.append(m)
     # S'il y en a trop, on garde les scrutins solennels et les motions de censure,
     # puis les votes qui ont réuni le plus de députés.
@@ -544,7 +619,10 @@ def _dernier_jour(fin):
 def rubriques(l, site_url=None):
     """Structure commune aux versions texte et HTML : liste de (titre, phrases, éléments)."""
     il = "Elle" if l["feminin"] else "Il"
-    sorties = []
+    sorties = [("En bref", [], [(ligne, None) for ligne in en_bref(l)])]
+    if l.get("themes_choisis"):
+        sorties[0][1].append("Vos thèmes, présentés en premier dans chaque rubrique : "
+                             + ", ".join(l["themes_choisis"]) + ".")
 
     # 1. Les votes qui engagent un texte entier ou le Gouvernement.
     phrases, elements, absence = [], [], False
@@ -595,7 +673,7 @@ def rubriques(l, site_url=None):
                    f"{_pluriel(l['scrutins'], 'scrutin public', 'scrutins publics')} "
                    "de la période" + (f" ({' ; '.join(reperes)})" if reperes else "") + ".",
                    "La plupart portent sur des amendements, souvent examinés pendant que "
-                   "d'autres réunions se tiennent."]
+                   "d'autres réunions se tiennent.", CE_QUI_NEST_PAS_MESURE]
         if l.get("serres"):
             phrases.append(
                 f"{_pluriel(l['serres'], 'scrutin s’est joué', 'scrutins se sont joués')} à "
@@ -615,7 +693,7 @@ def rubriques(l, site_url=None):
             phrases.append("Ses votes par thème : " + " ; ".join(
                 f"{t} ({n})" for t, n in l["votes_par_theme"]) + ".")
         noms = l.get("themes") or {}
-        groupes = votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
+        groupes = textes_votes(l)
         libs = l.get("libelles") or {}
         elements = [(lier(f"{noms[g['uid']]} — " if noms.get(g["uid"]) else "",
                           libs.get(g["uid"]) or g["texte"],
@@ -631,8 +709,9 @@ def rubriques(l, site_url=None):
     # 3. Où en sont les textes votés : un vote « adopté » à l'Assemblée n'est pas une loi.
     etats, noms = l.get("etats") or {}, l.get("themes") or {}
     ordre = [m["dossier_uid"] for m in l["majeurs"] if m.get("dossier_uid") and not m["censure"]]
-    ordre += [g["uid"] for g in votes_par_texte(l.get("autres_votes") or [],
-                                                l.get("scrutins_par_texte") or [])[:LIMITE]]
+    avant = l.get("dossiers_en_avant") or set()
+    ordre = sorted(ordre, key=lambda u: u not in avant)
+    ordre += [g["uid"] for g in textes_votes(l)[:LIMITE]]
     vus, elements = set(), []
     for uid in ordre:
         if uid in vus or uid not in etats or len(elements) >= LIMITE_ETATS:
@@ -654,7 +733,9 @@ def rubriques(l, site_url=None):
     textes = l.get("agenda") or []
     if textes:
         noms = l.get("themes_agenda") or {}
-        retenus = sorted(textes, key=lambda t: (not t["vote"], not t["sa_commission"],
+        avant = l.get("dossiers_en_avant") or set()
+        retenus = sorted(textes, key=lambda t: (not t["vote"], t["dossier_uid"] not in avant,
+                                                not t["sa_commission"],
                                                 t["date"]))[:LIMITE_AGENDA]
         elements = []
         for t in sorted(retenus, key=lambda t: t["date"]):

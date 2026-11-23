@@ -21,6 +21,9 @@ def envoyer_lettre(cfg, liens, donnees, db, abonne, debut, fin, a_blanc=False, c
         if not a_blanc:
             abonnes.marquer_envoye(db, abonne["id"], fin)
         return ("vacant" if lettre is None else "vide"), None
+    # Les thèmes choisis par l'abonné changent seulement l'ordre de présentation, après
+    # la composition commune à la circonscription : rien n'est recalculé ni retiré.
+    lettre = contenu.mettre_en_avant(lettre, abonnes.themes_de(abonne))
     sujet, texte, html = contenu.rendre(lettre, cfg.site_url, liens["gerer"],
                                         liens["desabonner"], contact=cfg.contact)
     if not a_blanc:

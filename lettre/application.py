@@ -13,8 +13,10 @@ from urllib.parse import parse_qs
 
 from . import abonnes, courriel, envoi
 from collecte.portrait import ordinal
+from collecte.themes import THEMES
 
 TAILLE_MAX = 4096
+MULTIPLES = ("themes",)   # champs de formulaire à valeurs multiples (cases à cocher)
 LIMITE_PAR_IP = 10        # demandes d'abonnement par heure et par adresse IP
 REPONSE_NEUTRE = ("Si cette adresse est valide, un e-mail vient de lui être envoyé. "
                   "Cliquez sur le lien qu'il contient pour confirmer votre abonnement.")
@@ -148,7 +150,8 @@ class Application:
             else:
                 sujet = "Votre abonnement à Mon député"
                 texte = (f"Bonjour,\n\nVous êtes déjà abonné à l'activité du député de la {lieu}.\n\n"
-                         f"Pour changer la fréquence ou vous désabonner :\n{liens['gerer']}\n")
+                         f"Pour changer la fréquence, choisir les thèmes mis en avant ou vous "
+                         f"désabonner :\n{liens['gerer']}\n")
             courriel.envoyer(self.config, courriel.construire(self.config, email, sujet, texte))
 
     def confirmer(self, jeton):
@@ -173,7 +176,8 @@ class Application:
         }.get(premiere, "")
         return self._page("Abonnement confirmé", (
             f"<p>Vous recevrez {LIBELLES[abonne['frequence']]} l'activité de votre député, "
-            "quand il y en a. Chaque lettre contient un lien pour changer la fréquence ou "
+            "quand il y en a. Chaque lettre contient un lien pour changer la fréquence, "
+            "mettre en avant les thèmes qui vous intéressent ou "
             "vous désabonner.</p>" + (f"<p>{escape(suite)}</p>" if suite else "")))
 
     def _premiere_lettre(self, db, abonne):
@@ -206,21 +210,35 @@ class Application:
                 if champs.get("frequence") not in abonnes.FREQUENCES:
                     return self._page("Fréquence inconnue", "", "400 Bad Request")
                 abonnes.modifier(db, identifiant, champs["frequence"])
+                if champs.get("choix_themes"):
+                    choisis = champs.get("themes") or []
+                    choisis = [choisis] if isinstance(choisis, str) else list(choisis)
+                    if set(choisis) - set(THEMES):
+                        return self._page("Thème inconnu", "", "400 Bad Request")
+                    abonnes.choisir_themes(db, identifiant, choisis)
                 abonne = abonnes.lire(db, identifiant)
-                message = '<p class="alerte">Fréquence enregistrée.</p>'
+                message = '<p class="alerte">Préférences enregistrées.</p>'
         finally:
             db.close()
         choix = "".join(
             f'<p><label><input type="radio" name="frequence" value="{f}"'
             f'{" checked" if abonne["frequence"] == f else ""}> {escape(LIBELLES[f].rstrip(",").capitalize())}'
             "</label></p>" for f in abonnes.FREQUENCES)
+        choisis = abonnes.themes_de(abonne) or []
+        cases = "".join(
+            f'<p><label><input type="checkbox" name="themes" value="{escape(t)}"'
+            f'{" checked" if t in choisis else ""}> {escape(t)}</label></p>' for t in THEMES)
         j = escape(jeton)
         return self._page("Votre abonnement", f"""{message}
 <p>Adresse : {escape(abonne['email'])}<br>Circonscription :
  {escape(ordinal(abonne['num_circo'], feminin=True))} du département {escape(abonne['num_departement'])}</p>
 <form method="post" action="{escape(self.config.api_url)}/api/gerer">
 <input type="hidden" name="jeton" value="{j}">{choix}
-<p><button type="submit">Enregistrer la fréquence</button></p></form>
+<h2>Thèmes mis en avant</h2>
+<p>Cochez les thèmes qui vous intéressent le plus : dans chaque rubrique de la lettre, leurs
+ textes apparaîtront en premier. Rien n'est retiré : la lettre reste complète.</p>
+<input type="hidden" name="choix_themes" value="1">{cases}
+<p><button type="submit">Enregistrer</button></p></form>
 <form method="post" action="{escape(self.config.api_url)}/api/desabonnement">
 <input type="hidden" name="jeton" value="{j}">
 <p><button type="submit">Me désabonner et effacer mon adresse</button></p></form>""")
@@ -295,7 +313,7 @@ class Application:
             if not isinstance(donnees, dict):
                 raise DemandeInvalide("Demande illisible.")
             return donnees
-        return {k: v[0] for k, v in parse_qs(brut).items()}
+        return {k: (v if k in MULTIPLES else v[0]) for k, v in parse_qs(brut).items()}
 
 
 class DemandeInvalide(Exception):

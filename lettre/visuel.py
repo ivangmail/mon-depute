@@ -56,6 +56,22 @@ def _etiquette(texte, fond=FILET, couleur=TEXTE):
             f"{_e(texte)}</span>")
 
 
+def _etiquette_theme(l, dossier, theme):
+    """Étiquette de thème ; en couleur d'accent si l'abonné a mis ce thème en avant."""
+    if dossier in (l.get("dossiers_en_avant") or set()):
+        return _etiquette(theme.upper(), "#dbe5ef", LIEN)
+    return _etiquette(theme.upper())
+
+
+def _en_bref(phrases, elements):
+    puces = "".join(
+        f'<tr><td valign="top" style="{_style(padding="0 8px 6px 0", color=LIEN, font_size="15px")}">•</td>'
+        f'<td style="{_style(padding="0 0 6px", font_size="15px", line_height="1.45", color=TEXTE)}">'
+        f"{_e(texte)}</td></tr>" for texte, _ in elements)
+    return _carte(f'<table role="presentation" cellpadding="0" cellspacing="0" border="0">{puces}</table>'
+                  + "".join(_p(_e(p), 13, DOUX, "8px 0 0") for p in phrases))
+
+
 def _pastille(texte, fond):
     return (f'<span style="{_style(background=fond, color="#ffffff", font_size="13px", font_weight="bold", padding="3px 10px", border_radius="12px", white_space="nowrap")}">'
             f"{_e(texte)}</span>")
@@ -122,8 +138,12 @@ def _essentiel(l, phrases):
     blocs, absent = [], False
     for i, m in enumerate(l["majeurs"]):
         etiquettes = [_etiquette(TYPES.get(m["type_vote"], "TEXTE ENTIER"), LIEN, "#ffffff")]
+        if m["ecart"] is not None and m["ecart"] <= contenu.ECART_SERRE:
+            etiquettes.append(_etiquette("VOTE SERRÉ", "#f3e3b3", TEXTE))
+        if m.get("contre_groupe"):
+            etiquettes.append(_etiquette("CONTRE SON GROUPE", "#f3e3b3", TEXTE))
         if themes.get(m.get("dossier_uid")):
-            etiquettes.append(_etiquette(themes[m["dossier_uid"]].upper()))
+            etiquettes.append(_etiquette_theme(l, m["dossier_uid"], themes[m["dossier_uid"]]))
         entete = " ".join(etiquettes) + f' <span style="color:{DOUX};font-size:13px">{_e(jour(m["date"]))}</span>'
         sort = (m["sort"] or "").lower()
         verbe = {"adopté": ("#dcefe2", "a adopté"), "rejeté": ("#f6dcd5", "a rejeté")}.get(sort)
@@ -199,7 +219,7 @@ def _participation(l, phrases):
     autres = [p for p in phrases if not p.startswith(f"{il} a pris part")
               and not p.startswith("Amendements et articles")]
     corps += [_p(_e(p), 14, TEXTE, "10px 0 0") for p in autres]
-    groupes = contenu.votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
+    groupes = contenu.textes_votes(l)
     if groupes:
         themes = l.get("themes") or {}
         textes = [_p("<b>Amendements et articles, texte par texte</b>", 15, TEXTE, "16px 0 4px")]
@@ -208,7 +228,7 @@ def _participation(l, phrases):
             nom = (l.get("libelles") or {}).get(g["uid"]) or g["texte"]
             titre = _lien(nom, g["lien"]) if g["lien"] else _e(nom)
             textes.append(_bloc(
-                (_p(_etiquette(theme.upper()), 13, DOUX, "0 0 4px") if theme else "")
+                (_p(_etiquette_theme(l, g["uid"], theme), 13, DOUX, "0 0 4px") if theme else "")
                 + _p(titre, 15, TEXTE, "0 0 6px")
                 + barre([(g["pour"], POUR), (g["abstention"], BARRE_ABSTENTION),
                          (g["contre"], CONTRE), (g["sans"], SANS)], 10)
@@ -250,32 +270,11 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
         f"{_e(l['groupe'] or '')}{' (' + _e(l['sigle']) + ')' if l.get('sigle') else ''} · {_e(lieu)}</p>"
         "</td></tr>"]
 
-    tuiles = []
-    participe, total = l.get("majeurs_bilan") or (0, 0)
-    if total:
-        tuiles.append((f"{participe} / {total}", "votes sur des textes entiers"))
-    if l["scrutins"]:
-        reperes = (f", médiane de l’Assemblée : {contenu._nombre(l['mediane_tous'])}"
-                   if l.get("mediane_tous") is not None else "")
-        tuiles.append((str(l["exprimes"]), f"scrutin{'s' if l['exprimes'] > 1 else ''} "
-                                            f"sur {l['scrutins']}{reperes}"))
-    tuiles.append((str(l["amendements"]),
-                   f"amendement{'s' if l['amendements'] > 1 else ''} "
-                   f"déposé{'s' if l['amendements'] > 1 else ''} en premier signataire"))
-    cellules = "".join(
-        f'<td width="{100 // len(tuiles)}%" valign="top" style="padding:0 {"6px" if i < len(tuiles) - 1 else "0"} 0 0">'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{CARTE}" '
-        f'style="{_style(background=CARTE, border=f"1px solid {BORD}", border_radius="8px")}"><tr><td style="padding:12px">'
-        f'<p style="{_style(margin="0", font_size="24px", font_weight="bold", line_height="1.1", color=TEXTE)}">{_e(valeur)}</p>'
-        f'<p style="{_style(margin="4px 0 0", font_size="12px", line_height="1.35", color=DOUX)}">{_e(libelle)}</p>'
-        "</td></tr></table></td>"
-        for i, (valeur, libelle) in enumerate(tuiles))
-    lignes.append(f'<tr><td style="padding:0 0 8px"><table role="presentation" width="100%" '
-                  f'cellpadding="0" cellspacing="0" border="0"><tr>{cellules}</tr></table></td></tr>')
-
     for titre, phrases, elements in contenu.rubriques(l, site_url):
         lignes.append(_titre(titre))
-        if titre == "L'essentiel":
+        if titre == "En bref":
+            lignes.append(_en_bref(phrases, elements))
+        elif titre == "L'essentiel":
             lignes.append(_essentiel(l, phrases))
         elif titre == "Sa participation aux scrutins":
             lignes.append(_participation(l, phrases))

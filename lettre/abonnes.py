@@ -1,19 +1,24 @@
 """Base des abonnés.
 
 Elle est séparée de la base des données de l'Assemblée et ne contient que le
-strict nécessaire : une adresse e-mail, une circonscription et une fréquence.
-Ni nom, ni adresse postale, ni adresse IP.
+strict nécessaire : une adresse e-mail, une circonscription, une fréquence et,
+si l'abonné en a choisi, les thèmes mis en avant dans sa lettre. Ni nom, ni
+adresse postale, ni adresse IP. La table « compteurs » ne garde que des nombres
+par jour (inscriptions, confirmations, désabonnements), sans aucune adresse.
 """
 
 import datetime
 import gzip
 import hashlib
 import hmac
+import json
 import os
 import re
 import shutil
 import sqlite3
 import tempfile
+
+from collecte.themes import THEMES
 
 # Périodes fixes : la semaine du lundi au dimanche, ou le mois calendaire. Tous les
 # abonnés d'une même circonscription reçoivent ainsi la même lettre.
@@ -40,9 +45,20 @@ CREATE TABLE IF NOT EXISTS abonnes (
     confirme_le         TEXT,
     dernier_envoi       TEXT,            -- fin de la période couverte par la dernière lettre
     dernier_courriel_le TEXT,            -- dernier e-mail de confirmation ou de gestion
+    themes              TEXT,            -- liste JSON des thèmes mis en avant ; NULL : aucun
     UNIQUE (email, num_departement, num_circo)
 );
+
+-- Nombres par jour, sans aucune donnée personnelle : seul moyen de suivre les
+-- désabonnements, puisqu'un désabonnement efface la ligne de l'abonné.
+CREATE TABLE IF NOT EXISTS compteurs (
+    jour      TEXT NOT NULL,
+    evenement TEXT NOT NULL,           -- inscription, confirmation, desabonnement
+    nombre    INTEGER NOT NULL,
+    PRIMARY KEY (jour, evenement)
+);
 """
+EVENEMENTS = ("inscription", "confirmation", "desabonnement")
 
 
 def ouvrir(chemin):
@@ -50,7 +66,20 @@ def ouvrir(chemin):
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode = WAL")
     db.executescript(SCHEMA)
+    # Base créée avant le choix des thèmes : la colonne manque encore.
+    if "themes" not in [c[1] for c in db.execute("PRAGMA table_info(abonnes)")]:
+        db.execute("ALTER TABLE abonnes ADD COLUMN themes TEXT")
+        db.commit()
     return db
+
+
+def compter(db, evenement, instant=None):
+    """Ajoute 1 au compteur du jour pour cet événement (aucune donnée personnelle)."""
+    if evenement not in EVENEMENTS:
+        raise ValueError("événement inconnu")
+    jour = (instant or maintenant()).date().isoformat()
+    db.execute("INSERT INTO compteurs VALUES (?, ?, 1) ON CONFLICT (jour, evenement)"
+               " DO UPDATE SET nombre = nombre + 1", (jour, evenement))
 
 
 def maintenant():
@@ -128,6 +157,7 @@ def inscrire(db, email, departement, circo, frequence, instant=None):
         "INSERT INTO abonnes (email, num_departement, num_circo, frequence, statut, cree_le,"
         " dernier_courriel_le) VALUES (?,?,?,?, 'attente', ?, ?)",
         (email, departement, circo, frequence, _iso(instant), _iso(instant)))
+    compter(db, "inscription", instant)
     db.commit()
     return db.execute("SELECT * FROM abonnes WHERE id = ?", (curseur.lastrowid,)).fetchone(), \
         "confirmation"
@@ -147,6 +177,9 @@ def lire(db, identifiant):
 
 def confirmer(db, identifiant, instant=None):
     instant = instant or maintenant()
+    if db.execute("SELECT 1 FROM abonnes WHERE id = ? AND statut = 'attente'",
+                  (identifiant,)).fetchone():
+        compter(db, "confirmation", instant)
     db.execute("UPDATE abonnes SET statut = 'actif', confirme_le = coalesce(confirme_le, ?)"
                " WHERE id = ?", (_iso(instant), identifiant))
     db.commit()
@@ -160,10 +193,53 @@ def modifier(db, identifiant, frequence):
     db.commit()
 
 
-def supprimer(db, identifiant):
-    """Désabonnement : la ligne est effacée, rien n'est conservé."""
-    db.execute("DELETE FROM abonnes WHERE id = ?", (identifiant,))
+def choisir_themes(db, identifiant, choisis):
+    """Enregistre les thèmes mis en avant dans la lettre. Aucun thème, ou tous,
+    revient à n'en mettre aucun en avant : la colonne est alors vide."""
+    inconnus = set(choisis) - set(THEMES)
+    if inconnus:
+        raise ValueError("thème inconnu")
+    retenus = [t for t in THEMES if t in set(choisis)]
+    valeur = json.dumps(retenus, ensure_ascii=False) if 0 < len(retenus) < len(THEMES) else None
+    db.execute("UPDATE abonnes SET themes = ? WHERE id = ?", (valeur, identifiant))
     db.commit()
+
+
+def themes_de(abonne):
+    """Thèmes mis en avant par l'abonné, ou None s'il n'en a choisi aucun."""
+    try:
+        valeur = abonne["themes"]
+    except (IndexError, KeyError):
+        return None
+    return json.loads(valeur) if valeur else None
+
+
+def supprimer(db, identifiant, instant=None):
+    """Désabonnement : la ligne est effacée, rien n'est conservé (seul le compteur
+    du jour augmente)."""
+    if db.execute("DELETE FROM abonnes WHERE id = ?", (identifiant,)).rowcount:
+        compter(db, "desabonnement", instant)
+    db.commit()
+
+
+def bilan(db, instant=None, jours=7):
+    """Chiffres agrégés pour l'éditeur : abonnés actifs par fréquence, inscriptions
+    en attente, et événements des derniers jours. Aucune adresse."""
+    instant = instant or maintenant()
+    depuis = (instant.date() - datetime.timedelta(days=jours)).isoformat()
+    actifs = dict(tuple(r) for r in db.execute(
+        "SELECT frequence, count(*) FROM abonnes WHERE statut = 'actif' GROUP BY frequence"))
+    evenements = dict(tuple(r) for r in db.execute(
+        "SELECT evenement, sum(nombre) FROM compteurs WHERE jour > ? GROUP BY evenement",
+        (depuis,)))
+    return {
+        "actifs": sum(actifs.values()), "par_frequence": actifs,
+        "en_attente": db.execute("SELECT count(*) FROM abonnes WHERE statut = 'attente'")
+                        .fetchone()[0],
+        "themes_choisis": db.execute("SELECT count(*) FROM abonnes WHERE statut = 'actif'"
+                                     " AND themes IS NOT NULL").fetchone()[0],
+        "jours": jours, **{e: evenements.get(e, 0) for e in EVENEMENTS},
+    }
 
 
 def purger(db, instant=None):
