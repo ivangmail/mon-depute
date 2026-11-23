@@ -578,6 +578,48 @@ class Lettre(unittest.TestCase):
         self.assertNotIn("loi air", texte)
         self.assertNotIn("Questions au Gouvernement", texte)
 
+    def test_signalement_des_textes_sans_intitule(self):
+        import dataclasses
+        import sqlite3
+        from unittest import mock
+        from collecte import libelles
+        from lettre.__main__ import signaler_libelles
+        db = sqlite3.connect(self.config.donnees)
+        db.executemany("INSERT INTO dossiers (uid, titre, procedure) VALUES (?,?,?)", [
+            ("D1", "Texte voté", "Proposition de loi ordinaire"),
+            ("D2", "Texte à l'ordre du jour", "Projet de loi ordinaire"),
+            ("D3", "Motion", "Engagement de la responsabilité gouvernementale"),
+            ("D4", "Texte déjà clair", "Proposition de loi ordinaire"),
+            ("D5", "Texte proposé", "Proposition de loi ordinaire")])
+        db.executemany("INSERT INTO scrutins (uid, numero, date, dossier_uid) VALUES (?,?,?,?)",
+                       [("S9", 9, "2025-07-10", "D1"), ("S10", 10, "2025-07-10", "D3"),
+                        ("S11", 11, "2025-07-11", "D4"), ("S12", 12, "2025-07-11", "D5"),
+                        ("S13", 13, "2025-06-01", "D2")])   # trop ancien
+        db.execute("INSERT INTO points_odj VALUES ('P1', 'R1', '2025-07-16T15:00:00', 0,"
+                   " 'Confirmé', 'Discussion', 'Discussion', 'D2')")
+        db.commit()
+        db.close()
+        csv = os.path.join(self.tmp.name, "libelles.csv")
+        with open(csv, "w", encoding="utf-8") as f:
+            f.write("dossier;statut;libelle;titre_officiel\nD4;titre officiel;;Texte déjà clair\n"
+                    "D5;proposé;Libellé;Texte proposé\n")
+        config = dataclasses.replace(self.config, contact="editeur@exemple.fr")
+        journal = []
+        with mock.patch.object(libelles, "FICHIER", csv):
+            # Lundi 14/07/2025 : liste dans le journal et e-mail à l'éditeur.
+            self.assertEqual(signaler_libelles(config, "2025-07-14", True, journal.append), 3)
+            # Mardi : la liste reste dans le journal, mais aucun nouvel e-mail.
+            signaler_libelles(config, "2025-07-15", True, lambda m: None)
+        self.assertIn("Sans intitulé en langage courant : D1 · Texte voté", journal)
+        self.assertIn("Sans intitulé en langage courant : D2 · Texte à l'ordre du jour", journal)
+        self.assertIn("Intitulé proposé, pas encore validé : D5 · Texte proposé", journal)
+        self.assertFalse(any("D3" in m or "D4" in m for m in journal))
+        messages = self.courriels()
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(messages[0]["To"], "editeur@exemple.fr")
+        self.assertIn("3 intitulés à décider avant mercredi", messages[0]["Subject"])
+        self.assertIn("- Texte voté (D1)", messages[0].get_content())
+
     def test_position_du_groupe(self):
         self.assertEqual(contenu.position_du_groupe({"pour": 7, "contre": 3}),
                          ("pour", "son groupe : pour (7 pour, 3 contre)"))

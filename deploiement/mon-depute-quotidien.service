@@ -13,4 +13,7 @@ EnvironmentFile=/etc/mon-depute.env
 ExecStart=-/usr/bin/python3 -m lettre sauvegarder /srv/mon-depute/donnees/sauvegardes
 ExecStart=/usr/bin/python3 -m collecte --donnees /srv/mon-depute/donnees --site /srv/mon-depute/site maj
 ExecStart=/usr/bin/python3 -m lettre purger
+# Textes à venir sans intitulé en langage courant : listés dans le journal chaque
+# jour, et signalés par e-mail à l'éditeur le lundi. Un échec ne bloque pas l'envoi.
+ExecStart=-/usr/bin/python3 -m lettre libelles --notifier
 ExecStart=/usr/bin/python3 -m lettre envoyer

@@ -93,6 +93,18 @@ Pour voir ce qui partirait sans rien envoyer :
 runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre envoyer --a-blanc'
 ```
 
+## Intitulés en langage courant
+
+Les textes qui vont apparaître dans les lettres (votés depuis deux semaines ou
+inscrits à l'ordre du jour) sans décision dans `collecte/libelles_textes.csv`
+sont listés chaque jour dans le journal de la tâche quotidienne. Le lundi,
+l'adresse `MD_CONTACT` reçoit la liste par e-mail s'il y en a. Pour la voir à
+tout moment :
+
+```bash
+runuser -u mondepute -- bash -c 'set -a; . /etc/mon-depute.env; cd /srv/mon-depute/code; python3 -m lettre libelles'
+```
+
 ## Sauvegarde
 
 Le seul fichier à sauvegarder est `/srv/mon-depute/donnees/abonnes.sqlite`,

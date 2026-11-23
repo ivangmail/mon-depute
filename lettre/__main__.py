@@ -8,13 +8,18 @@
                                           chiffrée hors du serveur si MD_S3_ESPACE est défini
     python -m lettre sauvegardes        liste les copies hors du serveur
     python -m lettre restaurer FICHIER  écrit dans FICHIER la base de la copie la plus récente
+    python -m lettre libelles           textes à venir sans intitulé en langage courant ;
+                                        --notifier : prévient l'éditeur par e-mail le lundi
 
 La configuration vient des variables d'environnement MD_* (voir lettre/config.py).
 """
 
 import argparse
+import datetime
 import sqlite3
 import sys
+
+from collecte import libelles
 
 from . import abonnes, config as configuration, courriel, envoi, sauvegarde
 from .stockage import ErreurStockage
@@ -84,6 +89,48 @@ def sauvegarder(cfg, dossier, depot=None, journal=print):
     return 0
 
 
+JOUR_NOTIFICATION = 0  # lundi : deux jours avant l'envoi des lettres hebdomadaires
+
+
+def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
+    """Liste dans le journal les textes qui vont apparaître dans les lettres sans
+    décision sur leur intitulé. Avec notifier, le lundi, écrit aussi à l'éditeur
+    (MD_CONTACT) s'il y en a. Renvoie le nombre de textes en attente."""
+    aujourdhui = aujourdhui or datetime.date.today().isoformat()
+    donnees = sqlite3.connect(f"file:{cfg.donnees}?mode=ro", uri=True)
+    try:
+        sans, proposes = libelles.a_faire(donnees, aujourdhui)
+    finally:
+        donnees.close()
+    for uid, titre in sans:
+        journal(f"Sans intitulé en langage courant : {uid} · {titre}")
+    for uid, titre in proposes:
+        journal(f"Intitulé proposé, pas encore validé : {uid} · {titre}")
+    journal(f"{len(sans)} textes sans intitulé, {len(proposes)} intitulés à valider")
+    lundi = datetime.date.fromisoformat(aujourdhui).weekday() == JOUR_NOTIFICATION
+    if notifier and lundi and (sans or proposes) and cfg.contact:
+        lignes = ["Bonjour,", "",
+                  "Ces textes vont apparaître dans les lettres de cette semaine, votés depuis "
+                  "deux semaines ou inscrits à l'ordre du jour, sans intitulé validé :", ""]
+        if sans:
+            lignes += ["Sans intitulé en langage courant :"]
+            lignes += [f"- {titre} ({uid})" for uid, titre in sans] + [""]
+        if proposes:
+            lignes += ["Intitulés proposés, en attente de votre validation :"]
+            lignes += [f"- {titre} ({uid})" for uid, titre in proposes] + [""]
+        lignes += ["Pour en obtenir, demandez à Claude : « propose les libellés des nouveaux "
+                   "textes ». Un texte dont le titre est déjà clair peut être marqué « titre "
+                   "officiel ». En attendant, les lettres affichent le titre officiel : rien "
+                   "n'est publié sans votre validation.",
+                   "", "Les lettres hebdomadaires partent mercredi."]
+        courriel.envoyer(cfg, courriel.construire(
+            cfg, cfg.contact,
+            f"Mon député : {len(sans) + len(proposes)} intitulés à décider avant mercredi",
+            "\n".join(lignes)))
+        journal(f"Éditeur prévenu par e-mail ({cfg.contact})")
+    return len(sans) + len(proposes)
+
+
 def main():
     parseur = argparse.ArgumentParser(prog="lettre", description=__doc__,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -100,6 +147,10 @@ def main():
                              help="écrit dans un fichier la base contenue dans une copie distante")
     p.add_argument("fichier", help="fichier à créer (jamais écrasé)")
     p.add_argument("--copie", help="clé de la copie (par défaut la plus récente)")
+    p = commandes.add_parser("libelles",
+                             help="textes à venir sans intitulé en langage courant")
+    p.add_argument("--notifier", action="store_true",
+                   help="le lundi, prévient l'éditeur par e-mail s'il y en a")
     args = parseur.parse_args()
     try:
         cfg = configuration.depuis_environnement()
@@ -114,6 +165,8 @@ def main():
         return 1 if envoyer(cfg, args.a_blanc)[3] else 0
     elif args.commande == "sauvegarder":
         return sauvegarder(cfg, args.dossier)
+    elif args.commande == "libelles":
+        signaler_libelles(cfg, notifier=args.notifier)
     elif args.commande in ("sauvegardes", "restaurer"):
         depot = sauvegarde.depot(cfg)
         if depot is None:
