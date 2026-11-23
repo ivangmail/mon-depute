@@ -4,24 +4,25 @@
 # (« proposé » : pas encore affiché ; « validé » : relu par l'éditeur, affiché) ;
 # libellé (120 caractères au plus) ; titre officiel, pour la relecture.
 # Les lignes qui commencent par # sont ignorées.
+# Les 20 premières lignes ont été validées par l'éditeur du site le 23/11/2026.
 dossier;statut;libelle;titre_officiel
-DLR5L17N54629;proposé;Budget de l'État pour 2027;Projet de loi de finances pour 2027
-DLR5L17N54951;proposé;Budget de la Sécurité sociale pour 2027;Projet de loi de financement de la sécurité sociale pour 2027
-DLR5L17N55223;proposé;Ajustements de fin d'année du budget de l'État pour 2026;Projet de loi de finances de fin de gestion pour 2026
-DLR5L17N50731;proposé;Mieux protéger les infrastructures essentielles du pays et renforcer la cybersécurité;Projet de loi relatif à la résilience des infrastructures critiques et au renforcement de la cybersécurité
-DLR5L17N54776;proposé;Une réponse d'ensemble aux violences sexuelles et sexistes contre les femmes et les enfants;Apporter une réponse intégrale au phénomène des violences sexuelles et sexistes contre les femmes et les enfants
-DLR5L17N54777;proposé;Adapter l'organisation de la justice à la lutte contre les violences sexuelles et intrafamiliales;Adapter l'autorité judiciaire à la lutte contre les violences sexuelles et intrafamiliales
-DLR5L17N54298;proposé;Protéger durablement, après 18 ans, les jeunes suivis par l'aide sociale à l'enfance ou la justice des mineurs;Protéger durablement les jeunes majeurs de l'aide sociale à l'enfance et de la protection judiciaire de la jeunesse
-DLR5L17N53331;proposé;Outre-mer : rétablir les règles ordinaires pour devenir propriétaire d'un bien occupé de longue date;Rétablir le droit commun de la prescription acquisitive dans les collectivités régies par l'article 73 de la Constitution ainsi qu'à Saint-Martin et Saint-Barthélemy
-DLR5L17N54096;proposé;Expérimenter une gestion territoriale unifiée du centre sportif (CREPS) de Vichy;Proposition de loi relative à l'expérimentation d'une gouvernance territoriale unifiée pour le centre de ressources, d'expertise et de performance sportive (CREPS) de Vichy
-DLR5L17N53886;proposé;Assouplir l'autorisation des établissements médico-sociaux expérimentaux;Proposition de loi visant à assouplir la procédure d'autorisation des établissements et services médico-sociaux à caractère expérimental
-DLR5L17N53095;proposé;Approuver la convention d'extradition entre la France et la Colombie;Projet de loi autorisant l'approbation de la convention d'extradition entre le Gouvernement de la République française et le Gouvernement de la République de Colombie
-DLR5L17N54557;proposé;Supprimer les zones à faibles émissions (ZFE);Abroger les zones à faibles émissions-mobilités
-DLR5L17N53330;proposé;Permettre en 2026 de débloquer exceptionnellement la participation et l'intéressement;Déblocage exceptionnel de la participation et de l'intéressement en 2026
-DLR5L17N53699;proposé;Rendre l'épargne salariale plus attractive et permettre un déblocage exceptionnel;Proposition de loi visant au renforcement de l'attractivité de l'épargne salariale et à la mise en oeuvre d'une procédure de déblocage exceptionnelle
-DLR5L17N51962;proposé;Pérenniser et étendre l'expérimentation « Territoires zéro chômeur de longue durée »;Exercer l'accès à l'emploi, pérenniser et étendre progressivement l'expérimentation Territoires zéro chômeur longue durée comme solution de retour à l'emploi pour les personnes privées durablement d'emploi
-DLR5L17N53069;proposé;Rééquilibrer les relations entre propriétaires et locataires;Retrouver la confiance et l'équilibre dans les rapports locatifs
-DLR5L17N51095;proposé;Lutter contre la vie chère outre-mer en renforçant la concurrence et la régulation économique;Proposition de loi visant à lutter contre la vie chère en renforçant le droit de la concurrence et de la régulation économique outre-mer
-DLR5L17N53359;proposé;Intelligence artificielle : présumer que ses fournisseurs utilisent les contenus culturels;Proposition de loi relative à l'instauration d'une présomption d'utilisation des contenus culturels par les fournisseurs d'intelligence artificielle
-DLR5L17N54277;proposé;Pour un traité qui interdise ou encadre les armes autonomes, et une position européenne commune;Un traité juridiquement contraignant prévoyant des interdictions et des réglementations aux systèmes d'armes autonomes et l'élaboration d'une position commune européenne sur ce sujet
-DLR5L17N54254;proposé;Révision de la directive européenne sur les médias audiovisuels et défense de l'exception culturelle;La révision de la directive « Services de médias audiovisuels » et la défense de l'exception culturelle européenne
+DLR5L17N54629;validé;Budget de l'État pour 2027;Projet de loi de finances pour 2027
+DLR5L17N54951;validé;Budget de la Sécurité sociale pour 2027;Projet de loi de financement de la sécurité sociale pour 2027
+DLR5L17N55223;validé;Ajustements de fin d'année du budget de l'État pour 2026;Projet de loi de finances de fin de gestion pour 2026
+DLR5L17N50731;validé;Mieux protéger les infrastructures essentielles du pays et renforcer la cybersécurité;Projet de loi relatif à la résilience des infrastructures critiques et au renforcement de la cybersécurité
+DLR5L17N54776;validé;Une réponse d'ensemble aux violences sexuelles et sexistes contre les femmes et les enfants;Apporter une réponse intégrale au phénomène des violences sexuelles et sexistes contre les femmes et les enfants
+DLR5L17N54777;validé;Adapter l'organisation de la justice à la lutte contre les violences sexuelles et intrafamiliales;Adapter l'autorité judiciaire à la lutte contre les violences sexuelles et intrafamiliales
+DLR5L17N54298;validé;Protéger durablement, après 18 ans, les jeunes suivis par l'aide sociale à l'enfance ou la justice des mineurs;Protéger durablement les jeunes majeurs de l'aide sociale à l'enfance et de la protection judiciaire de la jeunesse
+DLR5L17N53331;validé;Outre-mer : rétablir les règles ordinaires pour devenir propriétaire d'un bien occupé de longue date;Rétablir le droit commun de la prescription acquisitive dans les collectivités régies par l'article 73 de la Constitution ainsi qu'à Saint-Martin et Saint-Barthélemy
+DLR5L17N54096;validé;Expérimenter une gestion territoriale unifiée du centre sportif (CREPS) de Vichy;Proposition de loi relative à l'expérimentation d'une gouvernance territoriale unifiée pour le centre de ressources, d'expertise et de performance sportive (CREPS) de Vichy
+DLR5L17N53886;validé;Assouplir l'autorisation des établissements médico-sociaux expérimentaux;Proposition de loi visant à assouplir la procédure d'autorisation des établissements et services médico-sociaux à caractère expérimental
+DLR5L17N53095;validé;Approuver la convention d'extradition entre la France et la Colombie;Projet de loi autorisant l'approbation de la convention d'extradition entre le Gouvernement de la République française et le Gouvernement de la République de Colombie
+DLR5L17N54557;validé;Supprimer les zones à faibles émissions (ZFE);Abroger les zones à faibles émissions-mobilités
+DLR5L17N53330;validé;Permettre en 2026 de débloquer exceptionnellement la participation et l'intéressement;Déblocage exceptionnel de la participation et de l'intéressement en 2026
+DLR5L17N53699;validé;Rendre l'épargne salariale plus attractive et permettre un déblocage exceptionnel;Proposition de loi visant au renforcement de l'attractivité de l'épargne salariale et à la mise en oeuvre d'une procédure de déblocage exceptionnelle
+DLR5L17N51962;validé;Pérenniser et étendre l'expérimentation « Territoires zéro chômeur de longue durée »;Exercer l'accès à l'emploi, pérenniser et étendre progressivement l'expérimentation Territoires zéro chômeur longue durée comme solution de retour à l'emploi pour les personnes privées durablement d'emploi
+DLR5L17N53069;validé;Rééquilibrer les relations entre propriétaires et locataires;Retrouver la confiance et l'équilibre dans les rapports locatifs
+DLR5L17N51095;validé;Lutter contre la vie chère outre-mer en renforçant la concurrence et la régulation économique;Proposition de loi visant à lutter contre la vie chère en renforçant le droit de la concurrence et de la régulation économique outre-mer
+DLR5L17N53359;validé;Intelligence artificielle : présumer que ses fournisseurs utilisent les contenus culturels;Proposition de loi relative à l'instauration d'une présomption d'utilisation des contenus culturels par les fournisseurs d'intelligence artificielle
+DLR5L17N54277;validé;Pour un traité qui interdise ou encadre les armes autonomes, et une position européenne commune;Un traité juridiquement contraignant prévoyant des interdictions et des réglementations aux systèmes d'armes autonomes et l'élaboration d'une position commune européenne sur ce sujet
+DLR5L17N54254;validé;Révision de la directive européenne sur les médias audiovisuels et défense de l'exception culturelle;La révision de la directive « Services de médias audiovisuels » et la défense de l'exception culturelle européenne
