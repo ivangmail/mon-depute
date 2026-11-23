@@ -21,6 +21,10 @@ MOTS_MIN_EXTRAIT = 100  # une prise de parole plus courte n'est pas citée
 EXEMPLES_AMENDEMENTS = 2
 LIMITE_MAJEURS = 8  # votes listés dans « L'essentiel »
 LIMITE_ETATS = 8  # textes listés dans « Où en sont ces textes »
+LIMITE_AGENDA = 8  # textes listés dans « À l'ordre du jour »
+JOURS_AGENDA = 7  # l'ordre du jour couvre les sept jours qui suivent la composition
+TYPES_AGENDA = ("Discussion", "Suite de la discussion", "Vote solennel", "Explications de vote")
+JOURS_SEMAINE = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
 MOTION = "motion de censure"
 # Un scrutin est « serré » quand l'écart entre les pour et les contre ne dépasse pas ce nombre.
 ECART_SERRE = 10
@@ -173,11 +177,42 @@ def medianes(db, debut, fin, groupe_uid, scrutins):
 _COMMISSIONS = {}
 
 
+JOURS_COMMISSION = 90
+_PRINCIPALES = {}
+
+
+def commissions_principales(db, aujourdhui):
+    """{député en exercice: sa commission permanente}.
+
+    Les groupes inscrivent souvent un député, pour un à trois jours, dans une autre
+    commission. Sa commission est donc celle où il a siégé le plus de jours sur les
+    JOURS_COMMISSION derniers jours, et non la dernière en date."""
+    cle = (_cle_base(db), aujourdhui)
+    if cle not in _PRINCIPALES:
+        if len(_PRINCIPALES) > 20:
+            _PRINCIPALES.clear()
+        debut = (datetime.date.fromisoformat(aujourdhui)
+                 - datetime.timedelta(days=JOURS_COMMISSION)).isoformat()
+        jours = {}
+        for acteur, organe, n in db.execute("""
+                SELECT m.acteur_uid, m.organe_uid,
+                       sum(julianday(min(coalesce(m.date_fin, :fin), :fin))
+                           - julianday(max(m.date_debut, :debut)) + 1)
+                FROM mandats m JOIN deputes d ON d.acteur_uid = m.acteur_uid AND d.en_exercice = 1
+                WHERE m.type_organe = 'COMPER' AND m.qualite = 'Membre'
+                  AND m.date_debut <= :fin AND coalesce(m.date_fin, :fin) >= :debut
+                GROUP BY m.acteur_uid, m.organe_uid""",
+                {"debut": debut, "fin": aujourdhui}).fetchall():
+            if n and n > jours.get(acteur, (None, 0))[1]:
+                jours[acteur] = (organe, n)
+        _PRINCIPALES[cle] = {acteur: organe for acteur, (organe, _) in jours.items()}
+    return _PRINCIPALES[cle]
+
+
 def participation_commission(db, debut, fin, organe):
     """Scrutins de la période sur les textes examinés au fond par une commission.
 
-    Renvoie (nombre de scrutins, {député: votes exprimés sur ces scrutins},
-    membres actuels de la commission en exercice)."""
+    Renvoie (nombre de scrutins, {député: votes exprimés sur ces scrutins})."""
     cle = (_cle_base(db), debut, fin, organe)
     if cle not in _COMMISSIONS:
         if len(_COMMISSIONS) > 100:
@@ -194,12 +229,7 @@ def participation_commission(db, debut, fin, organe):
                     f" ({','.join('?' * len(morceau))}) AND position IN {indicateurs.EXPRIMES}"
                     " GROUP BY acteur_uid", morceau).fetchall():
                 votes[acteur] = votes.get(acteur, 0) + n
-        membres = [r[0] for r in db.execute(
-            "SELECT DISTINCT m.acteur_uid FROM mandats m JOIN deputes d"
-            " ON d.acteur_uid = m.acteur_uid AND d.en_exercice = 1"
-            " WHERE m.organe_uid = ? AND m.type_organe = 'COMPER' AND m.date_fin IS NULL",
-            (organe,)).fetchall()]
-        _COMMISSIONS[cle] = (len(ids), votes, membres)
+        _COMMISSIONS[cle] = (len(ids), votes)
     return _COMMISSIONS[cle]
 
 
@@ -229,12 +259,52 @@ def _pluriel(n, singulier, pluriel=None):
     return f"{n} {singulier if n < 2 else (pluriel or singulier + 's')}"
 
 
-def composer(db, departement, circo, debut, fin):
+def jour_long(iso):
+    """AAAA-MM-JJ -> « mercredi 25/11/2026 »."""
+    return f"{JOURS_SEMAINE[datetime.date.fromisoformat(iso[:10]).weekday()]} {jour(iso)}"
+
+
+def agenda(db, aujourdhui, commission=None):
+    """Textes inscrits à l'ordre du jour des séances des JOURS_AGENDA jours à venir.
+
+    Seuls les points confirmés de séances confirmées comptent. Renvoie une liste
+    de dictionnaires (dossier_uid ou None, titre, première date, date du vote
+    solennel s'il y en a un, texte de sa commission ou non), dans l'ordre des dates.
+    """
+    if not any(r[0] == "points_odj" for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'")):
+        return []
+    fin = (datetime.date.fromisoformat(aujourdhui)
+           + datetime.timedelta(days=JOURS_AGENDA)).isoformat()
+    textes = {}
+    for p in db.execute(f"""
+            SELECT p.debut, p.type, p.objet, p.dossier_uid, d.titre, d.commission_fond
+            FROM points_odj p JOIN reunions r ON r.uid = p.reunion_uid
+            LEFT JOIN dossiers d ON d.uid = p.dossier_uid
+            WHERE p.etat = 'Confirmé' AND r.etat = 'Confirmé'
+              AND substr(p.debut, 1, 10) >= ? AND substr(p.debut, 1, 10) < ?
+              AND p.type IN ({','.join('?' * len(TYPES_AGENDA))})
+            ORDER BY p.debut, p.ordre""", (aujourdhui, fin, *TYPES_AGENDA)).fetchall():
+        cle = p["dossier_uid"] or p["objet"]
+        if not cle:
+            continue
+        t = textes.setdefault(cle, {
+            "dossier_uid": p["dossier_uid"],
+            "titre": fiche.majuscule(p["titre"] or p["objet"] or ""),
+            "date": p["debut"][:10], "vote": None,
+            "sa_commission": bool(commission and p["commission_fond"] == commission)})
+        if p["type"] == "Vote solennel" and not t["vote"]:
+            t["vote"] = p["debut"][:10]
+    return list(textes.values())
+
+
+def composer(db, departement, circo, debut, fin, aujourdhui=None):
     """Renvoie le contenu de la lettre, ou None si le siège est vacant.
 
     debut inclus, fin exclue, au format AAAA-MM-JJ. Le champ « vide » indique
     qu'aucune activité n'a été enregistrée sur la période.
     """
+    aujourdhui = aujourdhui or datetime.date.today().isoformat()
     d = db.execute("""
         SELECT d.*, a.prenom, a.nom, a.civilite FROM deputes d
         JOIN acteurs a ON a.uid = d.acteur_uid
@@ -369,15 +439,14 @@ def composer(db, departement, circo, debut, fin):
         titres_dossiers.update(dict(tuple(r) for r in db.execute(
             f"SELECT uid, titre FROM dossiers WHERE uid IN ({','.join('?' * len(morceau))})",
             morceau).fetchall()))
-    sa_commission = db.execute("""
-        SELECT m.organe_uid, o.libelle_abrege, o.libelle FROM mandats m
-        JOIN organes o ON o.uid = m.organe_uid
-        WHERE m.acteur_uid = :uid AND m.type_organe = 'COMPER' AND m.date_fin IS NULL
-        ORDER BY (m.qualite = 'Membre') DESC, m.date_debut DESC LIMIT 1""", bornes).fetchone()
+    principales = commissions_principales(db, aujourdhui)
+    sa_commission = db.execute(
+        "SELECT uid AS organe_uid, libelle_abrege, libelle FROM organes WHERE uid = ?",
+        (principales.get(uid),)).fetchone()
     commission_votes = None
     if sa_commission and themes.disponible(db):
-        n, votes_membres, membres = participation_commission(db, debut, fin,
-                                                             sa_commission["organe_uid"])
+        membres = [a for a, o in principales.items() if o == sa_commission["organe_uid"]]
+        n, votes_membres = participation_commission(db, debut, fin, sa_commission["organe_uid"])
         if n:
             commission_votes = {
                 "nom": sa_commission["libelle_abrege"] or sa_commission["libelle"],
@@ -448,11 +517,14 @@ def composer(db, departement, circo, debut, fin):
         "commission_votes": commission_votes,
         "etats": etats, "titres_dossiers": titres_dossiers,
         # Les états sont ceux connus le jour où la lettre est composée, pas à la fin de la période.
-        "date_etats": datetime.date.today().isoformat(),
+        "date_etats": aujourdhui,
+        "agenda": agenda(db, aujourdhui, sa_commission["organe_uid"] if sa_commission else None),
+        "themes_agenda": {},
         "reunions": [dict(r) for r in reunions],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
     }
+    lettre["themes_agenda"] = themes.pour_dossiers(db, [t["dossier_uid"] for t in lettre["agenda"]])
     lettre["vide"] = not any((exprimes, majeurs, questions, reponses, interventions,
                               lettre["amendements"], propositions,
                               lettre["commission_reunions"]))
@@ -464,7 +536,7 @@ def _dernier_jour(fin):
     return (datetime.date.fromisoformat(fin) - datetime.timedelta(days=1)).isoformat()
 
 
-def rubriques(l):
+def rubriques(l, site_url=None):
     """Structure commune aux versions texte et HTML : liste de (titre, phrases, éléments)."""
     il = "Elle" if l["feminin"] else "Il"
     sorties = []
@@ -566,6 +638,39 @@ def rubriques(l):
             "Dernière étape connue de chaque texte"
             + (f", au {jour(l['date_etats'])}" if l.get("date_etats") else "") + " :"],
             elements))
+
+    # 4. Ce qui vient : écrire à son député avant le débat plutôt qu'après.
+    textes = l.get("agenda") or []
+    if textes:
+        noms = l.get("themes_agenda") or {}
+        retenus = sorted(textes, key=lambda t: (not t["vote"], not t["sa_commission"],
+                                                t["date"]))[:LIMITE_AGENDA]
+        elements = []
+        for t in sorted(retenus, key=lambda t: t["date"]):
+            theme = noms.get(t["dossier_uid"])
+            precisions = []
+            if t["vote"] and t["dossier_uid"]:  # sans dossier, la ligne est le vote lui-même
+                precisions.append(f"vote solennel le {jour_long(t['vote'])}")
+            if t["sa_commission"]:
+                precisions.append("texte examiné par sa commission")
+            elements.append((lier(f"{theme + ' — ' if theme else ''}{jour_long(t['date'])} : ",
+                                  t["titre"], f" ({' ; '.join(precisions)})" if precisions else ""),
+                             URL_DOSSIER.format(t["dossier_uid"]) if t["dossier_uid"] else None))
+        if len(textes) > LIMITE_AGENDA:
+            elements.append((f"Et {_pluriel(len(textes) - LIMITE_AGENDA, 'autre texte', 'autres textes')}"
+                             " inscrits à l'ordre du jour.", None))
+        if site_url and l.get("chemin_fiche"):
+            elements.append((lier("", f"Écrire à {'votre députée' if l['feminin'] else 'votre député'}"
+                                  " avant le débat", ""),
+                             f"{site_url}/{l['chemin_fiche']}#courrier"))
+        debut = l.get("date_etats")
+        sorties.append(("À l'ordre du jour de l'Assemblée", [
+            "Textes inscrits à l'ordre du jour des séances"
+            + (f" du {jour(debut)} au "
+               f"{jour((datetime.date.fromisoformat(debut) + datetime.timedelta(days=JOURS_AGENDA - 1)).isoformat())}"
+               if debut else "")
+            + ", d'après l'agenda publié par l'Assemblée. Il peut encore changer, et tous les "
+            "textes inscrits ne sont pas toujours examinés :"], elements))
 
     partages = l.get("dissidents_partages") or 0
     if l["dissidents"] or partages:
@@ -680,7 +785,7 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None):
             f'({escape(l["sigle"] or "")})</p>'
             f'<p style="margin:0 0 20px;color:#5b6270">{escape(entete.split(", ", 1)[1])}'
             f'<br>Activité {escape(periode)}</p>']
-    for titre, phrases, elements in rubriques(l):
+    for titre, phrases, elements in rubriques(l, site_url):
         texte += [titre.upper()] + phrases + [f"- {t.replace(MARQUE, '')}" + (f"\n  {u}" if u else "")
                                               for t, u in elements] + [""]
         html.append(f'<h2 style="font-size:16px;margin:22px 0 6px">{escape(titre)}</h2>')

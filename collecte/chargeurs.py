@@ -254,15 +254,29 @@ TYPES_REUNION = {"reunionCommission_type": "commission", "seance_type": "seance"
 def charger_reunions(db, chemins):
     db.execute("DELETE FROM reunions")
     db.execute("DELETE FROM presences")
+    db.execute("DELETE FROM points_odj")
     for chemin in chemins:
         for _, contenu in fichiers_json(chemin):
             r = contenu["reunion"]
             uid = r["uid"]
-            objet = sous(r, "ODJ", "resumeODJ", "item") or sous(r, "ODJ", "convocationODJ", "item")
-            if objet is None:
-                points = liste(sous(r, "ODJ", "pointsODJ", "pointODJ"))
-                objet = [p.get("objet") for p in points if isinstance(p, dict)]
+            points = [p for p in liste(sous(r, "ODJ", "pointsODJ", "pointODJ"))
+                      if isinstance(p, dict)]
+            # Le résumé de l'ordre du jour garde les points supprimés depuis : quand le
+            # détail existe, seuls les points qui n'ont pas été supprimés sont retenus.
+            if points:
+                objet = [p.get("objet") for p in points
+                         if lire(p, "cycleDeVie", "etat") != "Supprimé"]
+            else:
+                objet = (sous(r, "ODJ", "resumeODJ", "item")
+                         or sous(r, "ODJ", "convocationODJ", "item"))
             objet = " ; ".join(str(o) for o in liste(objet) if o) or None
+            if r.get("@xsi:type") == "seance_type":
+                for ordre, p in enumerate(points):
+                    dossiers = liste(sous(p, "dossiersLegislatifsRefs", "dossierRef"))
+                    db.execute("INSERT OR REPLACE INTO points_odj VALUES (?,?,?,?,?,?,?,?)", (
+                        p.get("uid") or f"{uid}-{ordre}", uid, val(r.get("timeStampDebut")),
+                        ordre, lire(p, "cycleDeVie", "etat"), val(p.get("typePointODJ")),
+                        texte_brut(val(p.get("objet"))), val(dossiers[0]) if dossiers else None))
             db.execute(
                 "INSERT OR REPLACE INTO reunions VALUES (?,?,?,?,?,?,?,?)",
                 (uid, TYPES_REUNION.get(r.get("@xsi:type"), r.get("@xsi:type")),

@@ -342,8 +342,15 @@ def methodologie(db):
  au règlement, si elle compte au moins cent mots. C’est un critère de longueur, pas de
  qualité.</li>
 <li><b>Textes de sa commission :</b> scrutins de la période sur les textes examinés au fond par
- la commission permanente dont le député est membre aujourd’hui. C’est là que porte sa
- spécialité ; la médiane est celle des membres actuels de cette commission.</li>
+ la commission permanente du député. C’est là que porte sa spécialité. Les groupes inscrivent
+ souvent un député, pour un à trois jours, dans une autre commission : sa commission est donc
+ celle où il a siégé le plus de jours sur les 90 derniers jours. La médiane est celle des
+ députés dont c’est aussi la commission.</li>
+<li><b>À l’ordre du jour :</b> textes inscrits aux séances des sept jours qui suivent
+ l’envoi, d’après l’agenda publié par l’Assemblée. Seuls les points confirmés de séances
+ confirmées sont retenus ; l’agenda peut encore changer, et un texte inscrit n’est pas
+ toujours examiné. Au-delà de huit textes, la lettre garde d’abord ceux qui font l’objet d’un
+ vote solennel, puis ceux de la commission du député.</li>
 <li><b>Où en sont ces textes :</b> la dernière étape datée publiée par l’Assemblée dans le
  dossier de chaque texte (vote d’une assemblée, commission mixte paritaire, Conseil
  constitutionnel, promulgation, retrait). Elle est décrite telle quelle, sans en déduire la

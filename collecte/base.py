@@ -156,6 +156,19 @@ CREATE TABLE IF NOT EXISTS dossiers (
     commission_fond TEXT    -- commission de l'Assemblée saisie au fond (organe)
 );
 
+-- Points de l'ordre du jour des séances publiques (agenda à venir compris).
+CREATE TABLE IF NOT EXISTS points_odj (
+    uid          TEXT PRIMARY KEY,
+    reunion_uid  TEXT NOT NULL,
+    debut        TEXT,              -- début de la séance
+    ordre        INTEGER,
+    etat         TEXT,              -- Confirmé, Supprimé
+    type         TEXT,              -- Discussion, Suite de la discussion, Vote solennel…
+    objet        TEXT,
+    dossier_uid  TEXT
+);
+CREATE INDEX IF NOT EXISTS points_odj_debut ON points_odj(debut);
+
 -- Étapes datées de la procédure d'un dossier (voir collecte/etapes.py).
 CREATE TABLE IF NOT EXISTS etapes (
     dossier_uid TEXT NOT NULL,

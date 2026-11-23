@@ -491,6 +491,54 @@ class Lettre(unittest.TestCase):
         self.assertIn("Une erreur dans cette lettre ? Signalez-la : contact@exemple.fr", texte)
         self.assertIn('<a href="mailto:contact@exemple.fr">Signalez-la</a>', html)
 
+    def test_ordre_du_jour_et_commission_principale(self):
+        import sqlite3
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        db.execute("INSERT INTO organes (uid, code_type, libelle, libelle_abrege) VALUES"
+                   " ('C2', 'COMPER', 'Commission des finances', 'FIN')")
+        # Ada siège à la commission des lois depuis 2024, et à celle des finances depuis
+        # la veille seulement (remplacement temporaire) : sa commission reste C1.
+        db.executemany("INSERT INTO mandats VALUES (?, 'PA1', ?, 'COMPER', '17', ?, ?, 'Membre')",
+                       [("MC1", "C1", "2024-07-20", "2025-07-14"),
+                        ("MC2", "C2", "2025-07-15", None)])
+        db.executemany("INSERT INTO dossiers (uid, titre, commission_fond) VALUES (?,?,?)",
+                       [("D1", "projet de loi eau", "C1"), ("D2", "projet de loi air", None)])
+        db.executemany("INSERT INTO reunions (uid, type, debut, etat) VALUES (?, 'seance', ?, ?)",
+                       [("R1", "2025-07-16T15:00:00.000+02:00", "Confirmé"),
+                        ("R2", "2025-07-17T15:00:00.000+02:00", "Supprimé"),
+                        ("R3", "2025-07-22T15:00:00.000+02:00", "Confirmé"),
+                        ("R4", "2025-07-23T15:00:00.000+02:00", "Confirmé")])
+        db.executemany("INSERT INTO points_odj VALUES (?,?,?,?,?,?,?,?)", [
+            ("P1", "R1", "2025-07-16T15:00:00.000+02:00", 0, "Confirmé", "Discussion",
+             "Discussion du projet de loi eau", "D1"),
+            ("P2", "R1", "2025-07-16T15:00:00.000+02:00", 1, "Supprimé", "Discussion",
+             "Discussion du projet de loi air", "D2"),           # point supprimé
+            ("P3", "R2", "2025-07-17T15:00:00.000+02:00", 0, "Confirmé", "Discussion",
+             "Discussion du projet de loi air", "D2"),           # séance supprimée
+            ("P4", "R3", "2025-07-22T15:00:00.000+02:00", 0, "Confirmé", "Vote solennel",
+             "Vote solennel sur l'ensemble du projet de loi eau", None),
+            ("P5", "R3", "2025-07-22T15:00:00.000+02:00", 1, "Confirmé",
+             "Questions au Gouvernement", "Questions au Gouvernement", None),
+            ("P6", "R4", "2025-07-23T15:00:00.000+02:00", 0, "Confirmé", "Discussion",
+             "Discussion du projet de loi air", "D2")])          # au-delà de sept jours
+        self.assertEqual(contenu.commissions_principales(db, "2025-07-16")["PA1"], "C1")
+        lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15",
+                                  aujourdhui="2025-07-16")
+        _, texte, _ = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
+        db.close()
+        self.assertIn(
+            "À L'ORDRE DU JOUR DE L'ASSEMBLÉE\nTextes inscrits à l'ordre du jour des séances du "
+            "16/07/2025 au 22/07/2025, d'après l'agenda publié par l'Assemblée. Il peut encore "
+            "changer, et tous les textes inscrits ne sont pas toujours examinés :\n"
+            "- Institutions, justice et sécurité — mercredi 16/07/2025 : Projet de loi eau (texte "
+            "examiné par sa commission)\n  https://www.assemblee-nationale.fr/dyn/17/dossiers/D1\n"
+            "- mardi 22/07/2025 : Vote solennel sur l'ensemble du projet de loi eau\n"
+            "- Écrire à votre députée avant le débat\n"
+            "  https://s.fr/deputes/ada-durand.html#courrier\n", texte)
+        self.assertNotIn("loi air", texte)
+        self.assertNotIn("Questions au Gouvernement", texte)
+
     def test_position_du_groupe(self):
         self.assertEqual(contenu.position_du_groupe({"pour": 7, "contre": 3}),
                          ("pour", "son groupe : pour (7 pour, 3 contre)"))
