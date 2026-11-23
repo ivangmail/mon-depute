@@ -9,7 +9,7 @@ import re
 import statistics
 from html import escape
 
-from collecte import etapes, fiche, indicateurs, site, themes
+from collecte import etapes, fiche, indicateurs, libelles, site, themes
 from collecte.portrait import jour, ordinal
 from collecte.sources import LEGISLATURE
 
@@ -20,6 +20,8 @@ LONGUEUR_EXTRAIT = 220  # caractères cités d'une intervention ou d'un exposé 
 MOTS_MIN_EXTRAIT = 100  # une prise de parole plus courte n'est pas citée
 EXEMPLES_AMENDEMENTS = 2
 LIMITE_MAJEURS = 8  # votes listés dans « L'essentiel »
+NOTE_LIBELLES = ("Les intitulés en langage courant sont rédigés par ce site et relus ; "
+                 "chaque lien mène au titre officiel, sur le site de l'Assemblée.")
 LIMITE_ETATS = 8  # textes listés dans « Où en sont ces textes »
 LIMITE_AGENDA = 8  # textes listés dans « À l'ordre du jour »
 JOURS_AGENDA = 7  # l'ordre du jour couvre les sept jours qui suivent la composition
@@ -524,6 +526,10 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
     }
     lettre["themes_agenda"] = themes.pour_dossiers(db, [t["dossier_uid"] for t in lettre["agenda"]])
+    lettre["libelles"] = libelles.pour_dossiers(
+        [m["dossier_uid"] for m in majeurs] + [v["dossier_uid"] for v in autres_votes]
+        + [t["dossier_uid"] for t in scrutins_par_texte] + [a["dossier_uid"] for a in deposes]
+        + [t["dossier_uid"] for t in lettre["agenda"]])
     lettre["vide"] = not any((exprimes, majeurs, questions, reponses, interventions,
                               lettre["amendements"], propositions,
                               lettre["commission_reunions"]))
@@ -555,6 +561,9 @@ def rubriques(l, site_url=None):
                 "à égalité de voix" if m["ecart"] == 0 else
                 f"à {_pluriel(m['ecart'], 'voix', 'voix')} près")
         apres = (f" ({resultat})" if resultat else "") + (f" · {m['groupe']}" if m["groupe"] else "")
+        clair = (l.get("libelles") or {}).get(m.get("dossier_uid"))
+        if clair and not m["censure"]:
+            apres += f" · en clair : {clair}"
         theme = (l.get("themes") or {}).get(m.get("dossier_uid"))
         elements.append((lier(f"{theme + ' — ' if theme else ''}{jour(m['date'])} · {position} · ",
                               intitule(m["titre"]), apres),
@@ -607,7 +616,9 @@ def rubriques(l, site_url=None):
                 f"{t} ({n})" for t, n in l["votes_par_theme"]) + ".")
         noms = l.get("themes") or {}
         groupes = votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
-        elements = [(lier(f"{noms[g['uid']]} — " if noms.get(g["uid"]) else "", g["texte"],
+        libs = l.get("libelles") or {}
+        elements = [(lier(f"{noms[g['uid']]} — " if noms.get(g["uid"]) else "",
+                          libs.get(g["uid"]) or g["texte"],
                           f" : {g['decompte']}"), g["lien"])
                     for g in groupes[:LIMITE]]
         if len(groupes) > LIMITE:
@@ -627,7 +638,8 @@ def rubriques(l, site_url=None):
         if uid in vus or uid not in etats or len(elements) >= LIMITE_ETATS:
             continue
         vus.add(uid)
-        titre = fiche.majuscule((l.get("titres_dossiers") or {}).get(uid) or "Texte")
+        titre = ((l.get("libelles") or {}).get(uid)
+                 or fiche.majuscule((l.get("titres_dossiers") or {}).get(uid) or "Texte"))
         elements.append((lier(f"{noms[uid]} — " if noms.get(uid) else "", titre,
                               f" : {etats[uid]}"), URL_DOSSIER.format(uid)))
     if elements:
@@ -653,7 +665,8 @@ def rubriques(l, site_url=None):
             if t["sa_commission"]:
                 precisions.append("texte examiné par sa commission")
             elements.append((lier(f"{theme + ' — ' if theme else ''}{jour_long(t['date'])} : ",
-                                  t["titre"], f" ({' ; '.join(precisions)})" if precisions else ""),
+                                  (l.get("libelles") or {}).get(t["dossier_uid"]) or t["titre"],
+                                  f" ({' ; '.join(precisions)})" if precisions else ""),
                              URL_DOSSIER.format(t["dossier_uid"]) if t["dossier_uid"] else None))
         if len(textes) > LIMITE_AGENDA:
             elements.append((f"Et {_pluriel(len(textes) - LIMITE_AGENDA, 'autre texte', 'autres textes')}"
@@ -737,7 +750,8 @@ def rubriques(l, site_url=None):
     noms = l.get("themes") or {}
     for titre, n, sorts, dossier in par_texte[:LIMITE]:
         theme = noms.get(dossier)
-        elements.append((f"{theme + ' — ' if theme else ''}{fiche.majuscule(titre)} : "
+        titre = (l.get("libelles") or {}).get(dossier) or fiche.majuscule(titre)
+        elements.append((f"{theme + ' — ' if theme else ''}{titre} : "
                          f"{_pluriel(n, 'amendement')} ({sorts})", None))
     if len(par_texte) > LIMITE:
         reste = sum(t[1] for t in par_texte[LIMITE:])
@@ -799,6 +813,7 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None, visuel=T
                 f"<li>{_element_html(t, u)}</li>" for t, u in elements) + "</ul>")
     texte += [f"Sa fiche complète : {lien_fiche}", f"Comment c'est calculé : {methode}", "",
               pied, "",
+              *([NOTE_LIBELLES, ""] if l.get("libelles") else []),
               *([f"Une erreur dans cette lettre ? Signalez-la : {contact}", ""] if contact else []),
               f"Changer la fréquence ou gérer votre abonnement : {lien_gestion}",
               f"Vous désabonner : {lien_desabonnement}"]
@@ -806,6 +821,8 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None, visuel=T
         f'<p style="margin:22px 0 6px"><a href="{escape(lien_fiche)}">Sa fiche complète</a> · '
         f'<a href="{escape(methode)}">Comment c’est calculé</a></p>'
         f'<p style="color:#5b6270;font-size:13px;margin:0 0 14px">{escape(pied)}</p>'
+        + (f'<p style="color:#5b6270;font-size:13px;margin:0 0 14px">{escape(NOTE_LIBELLES)}</p>'
+           if l.get("libelles") else "")
         + (f'<p style="color:#5b6270;font-size:13px;margin:0 0 14px">Une erreur dans cette '
            f'lettre ? <a href="mailto:{escape(contact)}">Signalez-la</a>.</p>' if contact else "")
         +

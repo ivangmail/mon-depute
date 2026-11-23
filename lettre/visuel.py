@@ -135,6 +135,9 @@ def _essentiel(l, phrases):
         else:
             texte = f"{_e(contenu.intitule(m['titre']))} ({_e(sort)})"
         corps = [_p(entete, 13, DOUX), _p(texte, 17, TEXTE, "0 0 10px")]
+        clair = (l.get("libelles") or {}).get(m.get("dossier_uid"))
+        if clair and not m["censure"]:
+            corps.insert(2, _p(f"<b>En clair :</b> {_e(clair)}", 15, TEXTE, "-4px 0 10px"))
         if m["censure"]:
             corps.append(_p(f"{_e(m['nb_pour'] or 0)} voix pour la censure. Seuls les votes pour "
                             "sont recensés.", 13, DOUX))
@@ -202,7 +205,8 @@ def _participation(l, phrases):
         textes = [_p("<b>Amendements et articles, texte par texte</b>", 15, TEXTE, "16px 0 4px")]
         for g in groupes[:contenu.LIMITE]:
             theme = themes.get(g["uid"])
-            titre = _lien(g["texte"], g["lien"]) if g["lien"] else _e(g["texte"])
+            nom = (l.get("libelles") or {}).get(g["uid"]) or g["texte"]
+            titre = _lien(nom, g["lien"]) if g["lien"] else _e(nom)
             textes.append(_bloc(
                 (_p(_etiquette(theme.upper()), 13, DOUX, "0 0 4px") if theme else "")
                 + _p(titre, 15, TEXTE, "0 0 6px")
@@ -280,6 +284,8 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
                + _lien("Comment c’est calculé", f"{site_url}/methodologie.html"), 14, TEXTE),
             _p("Ces chiffres sont des décomptes tirés des données ouvertes de l’Assemblée "
                "nationale. Ils mesurent un volume, pas une qualité.", 13, DOUX)]
+    if l.get("libelles"):
+        pied.append(_p(_e(contenu.NOTE_LIBELLES), 13, DOUX))
     if contact:
         pied.append(_p("Une erreur dans cette lettre ? "
                        + _lien("Signalez-la", f"mailto:{contact}") + ".", 13, DOUX))

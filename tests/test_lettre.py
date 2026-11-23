@@ -475,6 +475,22 @@ class Lettre(unittest.TestCase):
         lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
         _, texte, html = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d",
                                         contact="contact@exemple.fr")
+        self.assertNotIn(contenu.NOTE_LIBELLES, texte)
+        # Avec un libellé validé pour D1, il remplace le titre officiel dans les listes.
+        from unittest import mock
+        from collecte import libelles
+        with mock.patch.object(libelles, "_VALIDES", {"D1": "L'eau, en clair"}):
+            avec = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
+            _, texte_clair, html_clair = contenu.rendre(avec, "https://s.fr", "https://a/g",
+                                                        "https://a/d")
+        self.assertIn("(adopté) · son groupe : pour (1 pour) · en clair : L'eau, en clair",
+                      texte_clair)
+        self.assertIn("- Institutions, justice et sécurité — L'eau, en clair : 2 scrutins sans "
+                      "participation", texte_clair)
+        self.assertIn("- Institutions, justice et sécurité — L'eau, en clair : Texte adopté par",
+                      texte_clair)
+        self.assertIn(contenu.NOTE_LIBELLES, texte_clair)
+        self.assertIn("<b>En clair :</b> L&#x27;eau, en clair", html_clair)
         db.close()
         self.assertIn("10/07/2025 · N'a pas pris part au vote · Le texte B (rejeté, à 4 voix "
                       "près) · son groupe était partagé (1 pour, 1 contre)", texte)

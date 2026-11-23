@@ -355,6 +355,12 @@ def methodologie(db):
  souvent un député, pour un à trois jours, dans une autre commission : sa commission est donc
  celle où il a siégé le plus de jours sur les 90 derniers jours. La médiane est celle des
  députés dont c’est aussi la commission.</li>
+<li><b>Intitulés en langage courant :</b> pour certains textes au titre long ou technique, la
+ lettre affiche une reformulation (par exemple « Budget de l’État pour 2027 » pour « Projet de
+ loi de finances pour 2027 »). Elle ne doit rien ajouter au titre officiel. Chaque libellé est
+ relu par l’éditeur du site avant d’être affiché, et le lien mène au dossier officiel. Les
+ libellés sont publiés dans le fichier <code>collecte/libelles_textes.csv</code> du code
+ source.</li>
 <li><b>À l’ordre du jour :</b> textes inscrits aux séances des sept jours qui suivent
  l’envoi, d’après l’agenda publié par l’Assemblée. Seuls les points confirmés de séances
  confirmées sont retenus ; l’agenda peut encore changer, et un texte inscrit n’est pas

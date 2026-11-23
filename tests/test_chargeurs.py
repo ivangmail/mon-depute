@@ -765,3 +765,30 @@ class Etapes493(unittest.TestCase):
             "ANLUNI-DEBATS-DEC", "2026-03-01",
             "considérée comme définitive en application de l'article 151-7 du Règlement")]),
             "Texte considéré comme définitif par l'Assemblée nationale le 01/03/2026")
+
+
+from collecte import libelles  # noqa: E402
+
+
+class Libelles(unittest.TestCase):
+    def test_seuls_les_libelles_valides_sont_retenus(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            chemin = os.path.join(dossier, "l.csv")
+            with open(chemin, "w", encoding="utf-8") as f:
+                f.write("# commentaire\ndossier;statut;libelle;titre_officiel\n"
+                        "D1;validé;Budget de l'État pour 2027;Projet de loi de finances\n"
+                        "D2;proposé;Pas encore relu;Titre\n")
+            self.assertEqual(libelles.valides(chemin), {"D1": "Budget de l'État pour 2027"})
+            self.assertEqual(libelles.pour_dossiers(["D1", "D2", "D3", None], chemin),
+                             {"D1": "Budget de l'État pour 2027"})
+            for ligne in ("D3;validee;Faute;T\n", "D4;validé;;T\n", "D5;validé;" + "x" * 121 + ";T\n"):
+                with open(chemin, "a", encoding="utf-8") as f:
+                    f.write(ligne)
+                with self.assertRaises(ValueError):
+                    libelles.lire(chemin)
+                with open(chemin, encoding="utf-8") as f:
+                    contenu = f.read().replace(ligne, "")
+                with open(chemin, "w", encoding="utf-8") as f:
+                    f.write(contenu)
+        # Le fichier livré avec le code se lit sans erreur.
+        self.assertTrue(libelles.lire())
