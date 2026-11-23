@@ -149,6 +149,7 @@ def page(titre, description, contenu, racine, fraicheur, mentions=False):
 <div class="bandeau">Données de l’Assemblée nationale à jour au {escape(fraicheur or 'date inconnue')}</div>
 <nav class="barre"><div><a class="marque" href="{racine}index.html">{escape(NOM_SITE)}</a>
 <a href="{racine}index.html">Trouver un député</a>
+<a href="{racine}pourquoi.html">Pourquoi ?</a>
 <a href="{racine}methodologie.html">Méthodologie</a></div></nav>
 <main>{contenu}</main>
 <footer><div>Source : Assemblée nationale, données ouvertes publiées sous Licence Ouverte
@@ -181,7 +182,7 @@ def accueil(deputes, chemins):
 <h1>Que fait votre député ?</h1>
 <p class="portrait">Le portrait de l’activité de chaque député à l’Assemblée nationale : ses votes,
  sa présence en commission, ses interventions, ses amendements et ses questions,
- à partir des données officielles.</p>
+ à partir des données officielles. <a href="pourquoi.html">Pourquoi suivre son député ?</a></p>
 <section class="bloc">
 <h2>Par votre adresse</h2>
 <label for="adresse">Votre adresse postale</label>
@@ -244,7 +245,7 @@ def methodologie(db):
 <li>Les positions « non-votant » ne comptent pas comme une participation.</li>
 <li>Le taux n’est pas affiché en dessous de {indicateurs.MIN_SOLENNELS} scrutins solennels pendant le mandat.</li>
 </ul>
-<p>Moyenne actuelle des députés en exercice : {moy('solennels')}.</p>
+<p>Médiane actuelle des députés en exercice : {moy('solennels')}.</p>
 
 <h2 id="tous-scrutins">Pourquoi le taux « tous scrutins » est bas</h2>
 <p>La très grande majorité des scrutins publics portent sur des amendements. Ils se succèdent
@@ -271,7 +272,7 @@ def methodologie(db):
 <li>Les députés non inscrits n’ont pas de ligne de groupe : l’indicateur ne s’applique pas à eux.</li>
 <li>Le taux n’est pas affiché en dessous de {indicateurs.MIN_COMPARABLES} votes comparables.</li>
 </ul>
-<p>Un taux élevé est la norme dans tous les groupes (moyenne : {moy('loyaute')}). Voter contre
+<p>Un taux élevé est la norme dans tous les groupes (médiane : {moy('loyaute')}). Voter contre
  son groupe n’est ni une qualité ni un défaut : la fiche liste simplement les votes concernés.</p>
 
 <h2 id="commission">Présence en commission</h2>
@@ -286,7 +287,7 @@ def methodologie(db):
 <li>Une absence excusée reste comptée comme une absence, mais elle est indiquée séparément.</li>
 <li>Le taux n’est pas affiché en dessous de {indicateurs.MIN_REUNIONS} réunions.</li>
 </ul>
-<p>Moyenne actuelle des députés en exercice : {moy('commission')}. La présence en hémicycle,
+<p>Médiane actuelle des députés en exercice : {moy('commission')}. La présence en hémicycle,
  elle, n’est enregistrée nulle part : aucun indicateur ne peut la mesurer.</p>
 
 <h2 id="volumes">Interventions, amendements, questions, propositions</h2>
@@ -304,10 +305,14 @@ def methodologie(db):
 <li><b>Propositions de loi :</b> textes déposés pendant la législature, comme auteur ou cosignataire.</li>
 </ul>
 
-<h2 id="moyennes">Les moyennes de comparaison</h2>
-<p>Chaque taux est accompagné de la moyenne des députés en exercice et de celle du groupe
- du député. Il s’agit de la moyenne des taux individuels, calculée sur les seuls députés
- pour lesquels le taux est affichable.</p>
+<h2 id="medianes">Les médianes de comparaison</h2>
+<p>Chaque taux est accompagné de la médiane des députés en exercice et de celle du groupe du
+ député, calculées sur les seuls députés pour lesquels le taux est affichable.</p>
+<p>La médiane est la valeur du milieu : la moitié des députés font plus, l’autre moitié
+ moins. Contrairement à la moyenne, elle n’est pas tirée vers le haut ou vers le bas par
+ quelques valeurs extrêmes, comme un député presque toujours absent parce qu’il est malade
+ ou qu’il exerce une autre fonction. C’est aussi le repère qu’utilise la lettre
+ d’information.</p>
 
 <h2 id="portrait">Le portrait rédigé</h2>
 <p>Le texte de présentation en haut de chaque fiche est assemblé automatiquement à partir des
@@ -463,6 +468,146 @@ def adresses_fiches(deputes):
     return chemins
 
 
+URL_AN = "https://www.assemblee-nationale.fr/dyn/17"
+SOURCES_POURQUOI = {
+    "legislatives_2022": ("LCP, « Législatives 2022 : Ensemble loin de la majorité absolue »",
+                          "https://lcp.fr/actualites/legislatives-2022-ensemble-loin-de-la-"
+                          "majorite-absolue-le-rn-cree-la-surprise-la-nupes"),
+    "demission_2024": ("Élysée, communiqué du 16/07/2024 sur la démission du gouvernement",
+                       "https://www.elysee.fr/emmanuel-macron/2024/07/16/le-president-de-la-"
+                       "republique-a-accepte-ce-jour-la-demission-du-gouvernement-de-m-gabriel-attal"),
+    "barnier_2024": ("info.gouv.fr, « Michel Barnier nommé Premier ministre » (05/09/2024)",
+                     "https://www.info.gouv.fr/actualite/michel-barnier-nomme-premier-ministre"),
+    "constitution": ("Constitution du 4 octobre 1958, texte en vigueur (Conseil constitutionnel)",
+                     "https://www.conseil-constitutionnel.fr/le-bloc-de-constitutionnalite/"
+                     "texte-integral-de-la-constitution-du-4-octobre-1958-en-vigueur"),
+    "duree_mandat": ("Assemblée nationale, fiche « L’élection des députés » (article L.O. 121 du "
+                     "code électoral)",
+                     "https://questions.assemblee-nationale.fr/contenu/telechargement/625543/file/"
+                     "Fiche%203%20-%20Election%20des%20d%C3%A9put%C3%A9s.pdf"),
+}
+
+
+def lois_session(db, debut="2024-10-01", fin="2025-07-01"):
+    """Lois promulguées pendant une session : (total, issues d'une proposition de loi,
+    conventions internationales). Les lois organiques, dont le dossier ne dit pas s'il
+    s'agit d'un projet ou d'une proposition, ne sont pas comptées comme propositions."""
+    lignes = db.execute("""
+        SELECT d.procedure, count(DISTINCT e.dossier_uid) FROM etapes e
+        JOIN dossiers d ON d.uid = e.dossier_uid
+        WHERE e.code = 'PROM-PUB' AND e.date >= ? AND e.date < ? GROUP BY d.procedure""",
+                        (debut, fin)).fetchall() if any(
+        r[0] == "etapes" for r in db.execute("SELECT name FROM sqlite_master")) else []
+    total = sum(n for _, n in lignes)
+    propositions = sum(n for p, n in lignes if (p or "").startswith("Proposition de loi"))
+    conventions = sum(n for p, n in lignes if "traités" in (p or ""))
+    return total, propositions, conventions
+
+
+def pourquoi(db):
+    """Page « Pourquoi suivre son député ? ». Chaque fait est relié à sa source ;
+    les chiffres de l'Assemblée sont recalculés à chaque génération du site."""
+    def source(cle):
+        titre, url = SOURCES_POURQUOI[cle]
+        return f'<a href="{escape(url)}">{escape(titre)}</a>'
+
+    def scrutin(numero, texte):
+        return f'<a href="{URL_AN}/scrutins/{numero}">{escape(texte)}</a>'
+
+    def dossier(uid, texte):
+        return f'<a href="{URL_AN}/dossiers/{uid}">{escape(texte)}</a>'
+
+    total, propositions, conventions = lois_session(db)
+    if total and total > conventions:
+        part = round(100 * propositions / total)
+        hors = round(100 * propositions / (total - conventions))
+        lois = (f"Sur les {total} lois promulguées pendant la session ordinaire 2024-2025 (du "
+                f"01/10/2024 au 30/06/2025), au moins {propositions} venaient d’une proposition "
+                f"de loi, soit {part} % ; sans compter les {conventions} lois qui autorisent une "
+                f"convention internationale, {hors} %. Calcul fait par ce site sur les dossiers "
+                "législatifs publiés par l’Assemblée nationale.")
+    else:
+        lois = ""
+    sources = "".join(f"<li>{source(c)}</li>" for c in SOURCES_POURQUOI)
+    return f"""
+<h1>Pourquoi suivre son député ?</h1>
+<p class="portrait"><b>En bref.</b> Depuis 2022, aucune force politique n’a seule la majorité
+ absolue à l’Assemblée nationale. Ce que fait chaque député, ce qu’il vote, propose et défend,
+ pèse donc sur les décisions. Ce site permet de le suivre, semaine après semaine.</p>
+
+<h2>Une Assemblée sans majorité absolue</h2>
+<p>Aux élections législatives de juin 2022, la coalition présidentielle est restée loin de la
+ majorité absolue de 289 sièges ({source("legislatives_2022")}). Après la dissolution de juin
+ 2024, l’Assemblée élue en juillet 2024 compte plusieurs blocs, dont aucun ne peut gouverner
+ seul. Depuis :</p>
+<ul>
+<li>les budgets de 2025 et de 2026 ont été adoptés sans vote sur le texte, le Gouvernement ayant
+ engagé sa responsabilité en application de l’article 49, alinéa 3, de la Constitution
+ ({dossier("DLR5L17N50198", "budget 2025")}, {dossier("DLR5L17N52428", "budget 2026")})&nbsp;;</li>
+<li>le gouvernement de Michel Barnier a été renversé par une motion de censure le 04/12/2024
+ ({scrutin(519, "scrutin n° 519")})&nbsp;;</li>
+<li>celui de François Bayrou n’a pas obtenu la confiance de l’Assemblée le 08/09/2025
+ ({scrutin(3054, "scrutin n° 3054")})&nbsp;;</li>
+<li>du 16/07/2024 au 05/09/2024, pendant 51 jours, un gouvernement démissionnaire a expédié les
+ affaires courantes ({source("demission_2024")} ; {source("barnier_2024")}).</li>
+</ul>
+
+<h2>2027 : une élection présidentielle, pas forcément des législatives</h2>
+<p>L’élection présidentielle de 2027 désignera un chef de l’État ; elle n’élira pas de députés.
+ L’Assemblée actuelle est élue jusqu’en juin 2029 ({source("duree_mandat")}). Il n’y aura
+ d’élections législatives en 2027 que si le Président élu dissout l’Assemblée (article 12 de la
+ Constitution), et rien ne garantit qu’une majorité absolue en sortirait. Dans les deux cas,
+ aucune loi ne sera votée sans les députés.</p>
+
+<h2>Ce que font les députés</h2>
+<p>Les députés proposent, amendent et votent la loi, et contrôlent le Gouvernement. Les textes
+ d’origine parlementaire occupent une large place. {escape(lois)}</p>
+<p>Certaines décisions, dont les budgets, ont en revanche été adoptées sans vote sur le texte. Ce
+ que les députés font de leur mandat mérite donc d’être suivi.</p>
+
+<h2>Savoir ce que fait son député</h2>
+<p>Nous confions à un député, pour cinq ans au plus, le pouvoir de voter la loi. L’Assemblée
+ publie chaque vote, chaque amendement, chaque intervention, mais ces informations sont
+ dispersées et difficiles à lire. Ce site les rassemble :</p>
+<ul>
+<li>sur la fiche de chaque député : ses votes solennels, ses votes conformes ou non à la ligne de
+ son groupe, ses amendements et ce qu’ils sont devenus, ses interventions, sa présence en
+ commission ;</li>
+<li>dans une lettre, chaque semaine ou chaque mois : les votes de la période, dont les votes
+ serrés, l’avancement des textes votés et les textes inscrits à l’ordre du jour.</li>
+</ul>
+<p><b>Un exemple.</b> Le 21/07/2026, sur l’ensemble du projet de loi relatif à la protection des
+ enfants, 378 députés ont voté pour, 7 contre, et 173 se sont abstenus
+ ({scrutin(8430, "scrutin n° 8430")}). Comment a voté le vôtre ? Sa fiche vous le dit, et vous
+ pouvez lui écrire pour lui demander pourquoi.</p>
+
+<h2>Lui demander des comptes</h2>
+<p>Un député représente la Nation tout entière : « Tout mandat impératif est nul » (article 27 de
+ la {source("constitution")}). Il n’est donc pas tenu par les consignes de ses électeurs, et rien
+ ne l’oblige à leur répondre. Mais lui écrire, l’interroger lors d’une permanence, lui demander
+ pourquoi il a voté de telle façon sur un texte important : c’est l’exercice normal de la
+ citoyenneté entre deux élections.</p>
+
+<h2>Ce que ce site n’est pas</h2>
+<ul>
+<li><b>Un classement ou une note.</b> Un taux de participation mesure un volume, pas la qualité
+ d’un travail. Chaque chiffre est comparé à la médiane des députés et à celle de son groupe.</li>
+<li><b>Un site militant.</b> Les mêmes règles valent pour tous les députés, quel que soit leur
+ groupe, et la méthode est publiée : <a href="methodologie.html">Méthodologie</a>.</li>
+<li><b>Un site officiel.</b> Seuls les documents de l’Assemblée nationale font foi.</li>
+</ul>
+
+<h2>Sources</h2>
+<ul>
+<li>Votes, dossiers et activité des députés : Assemblée nationale, données ouvertes
+ (data.assemblee-nationale.fr), Licence Ouverte. Les scrutins et dossiers cités sont liés
+ ci-dessus.</li>
+<li>Recherche par adresse : géocodage de l’IGN (Géoplateforme) et contours des circonscriptions
+ publiés sur data.gouv.fr.</li>
+{sources}
+</ul>"""
+
+
 HEBERGEUR = "Scaleway SAS, 8 rue de la Ville-l’Évêque, 75008 Paris, RCS Paris 433 115 904"
 DEPOT = "https://github.com/ivangmail/mon-depute"
 
@@ -597,6 +742,10 @@ def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None
     ecrire("methodologie.html", page(
         f"Méthodologie · {NOM_SITE}", "Comment chaque indicateur est calculé, et ses limites.",
         methodologie(db), "", fraicheur, mentions))
+    ecrire("pourquoi.html", page(
+        f"Pourquoi suivre son député ? · {NOM_SITE}",
+        "Une Assemblée sans majorité absolue : ce que fait chaque député compte.",
+        pourquoi(db), "", fraicheur, mentions))
     for d in deputes:
         titre, description, contenu = fiche.corps(db, d["acteur_uid"], racine="../",
                                                   api_url=api_url)

@@ -255,6 +255,16 @@ class Indicateurs(unittest.TestCase):
         self.assertEqual((self.ligne("PA2")["votes_comparables"],
                           self.ligne("PA2")["votes_conformes"]), (2, 2))
 
+    def test_reperes_en_mediane(self):
+        # Taux de votes conformes : PA1 100 %, PA2 100 %, PA3 0 %. La médiane vaut
+        # 100 %, là où la moyenne vaudrait 67 %.
+        from unittest import mock
+        with mock.patch.object(indicateurs, "MIN_COMPARABLES", 1), self.db:
+            indicateurs.calculer(self.db)
+        reperes = {(m[0], m[1]): (m[2], m[3]) for m in self.db.execute("SELECT * FROM moyennes")}
+        self.assertEqual(reperes[("tous", "loyaute")], (1.0, 3))
+        self.assertEqual(reperes[("G1", "loyaute")], (1.0, 3))
+
     def test_loyaute(self):
         # PA3 a voté pour quand son groupe votait contre ; S4 est écarté pour tous.
         self.assertEqual((self.ligne("PA3")["votes_comparables"],
@@ -414,6 +424,29 @@ class MentionsLegales(unittest.TestCase):
             confidentialite = pathlib.Path(avec, "confidentialite.html").read_text("utf-8")
             self.assertIn("Le responsable du traitement est Ada &lt;Durand&gt;.", confidentialite)
             self.assertIn("écrivez à contact@exemple.fr", confidentialite)
+            # Page « Pourquoi », liée depuis la barre de navigation de chaque page.
+            pourquoi = pathlib.Path(avec, "pourquoi.html").read_text("utf-8")
+            self.assertIn("<h1>Pourquoi suivre son député ?</h1>", pourquoi)
+            self.assertIn("/scrutins/8430", pourquoi)
+            self.assertIn("Tout mandat impératif est nul", pourquoi)
+            self.assertIn('href="../pourquoi.html"', fiche_html)
+
+    def test_lois_de_la_session(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            db = base.ouvrir(os.path.join(dossier, "l.sqlite"))
+            db.executemany("INSERT INTO dossiers (uid, procedure) VALUES (?,?)", [
+                ("D1", "Proposition de loi ordinaire"), ("D2", "Proposition de loi ordinaire"),
+                ("D3", "Projet de loi ordinaire"),
+                ("D4", "Projet de ratification des traités et conventions"),
+                ("D5", "Proposition de loi ordinaire")])
+            db.executemany("INSERT INTO etapes VALUES (?, 1, 'PROM-PUB', ?, NULL, NULL)", [
+                ("D1", "2024-11-02"), ("D2", "2025-06-30"), ("D3", "2025-03-01"),
+                ("D4", "2025-01-15"), ("D5", "2025-07-15")])   # D5 : après la session
+            self.assertEqual(site.lois_session(db), (4, 2, 1))
+            # Sans aucune loi, la page n'affiche pas de pourcentage.
+            self.assertNotIn(" %", site.pourquoi(base.ouvrir(os.path.join(dossier, "v.sqlite")))
+                             .split("Ce que font les députés")[1].split("</p>")[0])
+            db.close()
 
 
 class EcrireAuDepute(unittest.TestCase):

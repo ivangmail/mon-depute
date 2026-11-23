@@ -5,6 +5,7 @@ Méthodologie du site (collecte/site.py) : si l'une change, l'autre aussi.
 """
 
 import datetime
+import statistics
 
 from .sources import LEGISLATURE
 
@@ -179,8 +180,10 @@ def calculer(db, aujourdhui=None):
         WHERE type_organe = 'ASSEMBLEE' AND legislature IS NOT NULL
         GROUP BY acteur_uid""")
 
-    # Moyennes de comparaison : moyenne des taux individuels des députés en
-    # exercice, pour tous puis groupe par groupe.
+    # Repères de comparaison : MÉDIANE des taux individuels des députés en
+    # exercice, pour tous puis groupe par groupe (la table garde son nom
+    # « moyennes »). La médiane n'est pas tirée par quelques valeurs extrêmes, et
+    # c'est le repère utilisé par la lettre.
     taux = {
         "solennels": ("1.0 * i.solennels_exprimes / i.solennels_eligibles",
                       f"i.solennels_eligibles >= {MIN_SOLENNELS}"),
@@ -194,10 +197,14 @@ def calculer(db, aujourdhui=None):
     for nom, (formule, condition) in taux.items():
         base = (f"FROM indicateurs i JOIN deputes d ON d.acteur_uid = i.acteur_uid"
                 f" WHERE d.en_exercice = 1 AND {condition}")
-        db.execute(f"INSERT INTO moyennes SELECT 'tous', ?, avg({formule}), count(*) {base}",
-                   (nom,))
-        db.execute(f"INSERT INTO moyennes SELECT d.groupe_uid, ?, avg({formule}), count(*)"
-                   f" {base} AND d.groupe_uid IS NOT NULL GROUP BY d.groupe_uid", (nom,))
+        valeurs = {}
+        for groupe, valeur in db.execute(f"SELECT d.groupe_uid, {formule} {base}").fetchall():
+            valeurs.setdefault("tous", []).append(valeur)
+            if groupe:
+                valeurs.setdefault(groupe, []).append(valeur)
+        db.executemany("INSERT INTO moyennes VALUES (?,?,?,?)",
+                       [(perimetre, nom, statistics.median(liste), len(liste))
+                        for perimetre, liste in valeurs.items()])
     return db.execute("SELECT count(*) FROM indicateurs").fetchone()[0]
 
 

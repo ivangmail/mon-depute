@@ -109,9 +109,9 @@ def _jauge(titre, valeur, detail, moyenne, moyenne_groupe, sigle, aide):
               if moyenne is not None else "")
     comparaison = []
     if moyenne is not None:
-        comparaison.append(f"moyenne des députés : {pourcent(moyenne)}")
+        comparaison.append(f"médiane des députés : {pourcent(moyenne)}")
     if moyenne_groupe is not None and sigle and sigle != "NI":
-        comparaison.append(f"moyenne du groupe {escape(sigle)} : {pourcent(moyenne_groupe)}")
+        comparaison.append(f"médiane du groupe {escape(sigle)} : {pourcent(moyenne_groupe)}")
     return f"""<div class="mesure">
 <h3>{escape(titre)}</h3>
 <p class="chiffre"><b>{pourcent(valeur)}</b> <span class="doux">{escape(detail)}</span></p>
