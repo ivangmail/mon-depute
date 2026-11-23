@@ -325,7 +325,7 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
     majeurs = []
     for s in db.execute(f"""
             SELECT s.uid, s.numero, s.date, s.titre, s.sort, s.type_vote, s.nb_pour, s.nb_contre,
-                   s.nb_votants, s.dossier_uid,
+                   s.nb_votants, s.nb_abstentions, s.nb_exprimes, s.dossier_uid,
                    v.position, v.groupe_uid FROM scrutins s
             LEFT JOIN votes v ON v.scrutin_uid = s.uid AND v.acteur_uid = :uid
             WHERE {MAJEUR} AND s.date >= :debut AND s.date < :fin
@@ -346,6 +346,8 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
     # S'il y en a trop, on garde les scrutins solennels et les motions de censure,
     # puis les votes qui ont réuni le plus de députés.
     majeurs_en_tout = len(majeurs)
+    textes_entiers = [m for m in majeurs if not m["censure"]]
+    majeurs_bilan = (sum(1 for m in textes_entiers if m["position"]), len(textes_entiers))
     if majeurs_en_tout > LIMITE_MAJEURS:
         retenus = sorted(majeurs, key=lambda m: (
             m["type_vote"] not in (indicateurs.SOLENNEL, MOTION),
@@ -495,7 +497,7 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
         "num_circo": str(int(d["num_circo"])), "chemin_fiche": chemins[uid],
         "debut": debut, "fin": fin,
         "scrutins": scrutins, "exprimes": exprimes,
-        "majeurs": majeurs, "majeurs_en_tout": majeurs_en_tout,
+        "majeurs": majeurs, "majeurs_en_tout": majeurs_en_tout, "majeurs_bilan": majeurs_bilan,
         "autres_votes": [dict(v) for v in autres_votes],
         "scrutins_par_texte": [dict(t) for t in scrutins_par_texte],
         "serres": serres[0] or 0, "serres_exprimes": serres[1] or 0,
@@ -763,11 +765,16 @@ def rubriques(l, site_url=None):
     return sorties
 
 
-def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None):
+TAILLE_HTML_MAX = 90_000  # Gmail tronque les messages dont le HTML dépasse environ 100 Ko
+
+
+def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None, visuel=True):
     """Renvoie (sujet, version texte, version HTML).
 
     « contact » est l'adresse à laquelle signaler une erreur ; sans elle, la
-    lettre n'en parle pas."""
+    lettre n'en parle pas. La version HTML est la mise en page visuelle
+    (lettre/visuel.py) ; si elle dépasse TAILLE_HTML_MAX, la version simple la
+    remplace, pour que le lien de désabonnement ne soit jamais coupé."""
     periode = f"du {jour(l['debut'])} au {jour(_dernier_jour(l['fin']))}"
     sujet = f"{l['depute']} : son activité {periode}"
     lien_fiche = f"{site_url}/{l['chemin_fiche']}"
@@ -808,4 +815,9 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None):
     corps = ('<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;'
              'line-height:1.5;color:#1c1f26;max-width:620px;margin:0 auto;padding:16px">'
              + "".join(html) + "</div>")
+    if visuel:
+        from . import visuel as mise_en_page
+        riche = mise_en_page.html(l, site_url, lien_gestion, lien_desabonnement, contact)
+        if len(riche.encode()) <= TAILLE_HTML_MAX:
+            corps = riche
     return sujet, "\n".join(texte), corps

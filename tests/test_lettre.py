@@ -368,13 +368,35 @@ class Lettre(unittest.TestCase):
         self.assertIn("Elle a pris part à 2 des 3 scrutins publics de la période (médiane du "
                       "groupe UN : 2 ; médiane de l'Assemblée : 1,5).", texte)
         self.assertNotIn("Signalez-la", texte)
-        self.assertIn("<a href=\"https://a/d\">Vous désabonner</a>", html)
+        # Version visuelle : tableaux, phrase de résultat, position, lien de désabonnement.
+        self.assertIn('role="presentation"', html)
+        self.assertIn("L’Assemblée <span", html)
+        self.assertIn(">a rejeté</span> le texte B", html)
+        self.assertIn(">Contre</span>", html)
+        self.assertIn('href="https://a/d"', html)
+        self.assertIn("Vous désabonner</a>", html)
+        self.assertNotIn("<script", html)
+        self.assertNotIn(contenu.MARQUE, texte + html + sujet)
+        # Trop lourde, la lettre repart dans sa version simple, désabonnement compris.
+        from unittest import mock
+        with mock.patch.object(contenu, "TAILLE_HTML_MAX", 100):
+            _, _, simple = contenu.rendre(lettre, "https://s.fr", "https://a/g", "https://a/d")
         # Seul l'intitulé du scrutin est cliquable, pas la ligne entière.
         self.assertIn('<li>10/07/2025 · Contre · <a href="https://www.assemblee-nationale.fr'
                       '/dyn/17/scrutins/2">Le texte B</a> (rejeté) · son groupe : contre '
-                      '(1 pour, 2 contre)</li>', html)
-        self.assertNotIn(contenu.MARQUE, texte + html + sujet)
+                      '(1 pour, 2 contre)</li>', simple)
+        self.assertIn("<a href=\"https://a/d\">Vous désabonner</a>", simple)
         db.close()
+
+    def test_barres(self):
+        from lettre import visuel
+        import re
+        largeurs = lambda h: [int(x) for x in re.findall(r'<td width="(\d+)%"', h)]
+        self.assertEqual(largeurs(visuel.barre([(1, "a"), (1, "b"), (1, "c")])), [34, 33, 33])
+        # Une valeur infime reste visible, et le total fait toujours 100.
+        self.assertEqual(largeurs(visuel.barre([(1, "a"), (299, "b")])), [1, 99])
+        self.assertEqual(largeurs(visuel.barre([(0, "a"), (5, "b")])), [100])
+        self.assertEqual(visuel.barre([(0, "a")]), "")
 
     def test_contenu_detaille(self):
         import sqlite3
@@ -489,7 +511,8 @@ class Lettre(unittest.TestCase):
         self.assertIn("Sa plus longue prise de parole (09/07/2025, 150 mots, sur « Eau »), "
                       "début : « Madame la présidente, l'eau manque. »", texte)
         self.assertIn("Une erreur dans cette lettre ? Signalez-la : contact@exemple.fr", texte)
-        self.assertIn('<a href="mailto:contact@exemple.fr">Signalez-la</a>', html)
+        self.assertIn('<a href="mailto:contact@exemple.fr" style="color:#1f4e79">Signalez-la</a>',
+                      html)
 
     def test_ordre_du_jour_et_commission_principale(self):
         import sqlite3
