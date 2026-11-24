@@ -17,10 +17,12 @@ CONTOURS = os.path.join(ICI, "contours")
 STYLE = """
 :root{--fond:#fbfaf7;--surface:#fff;--texte:#1c1f26;--doux:#5b6270;--trait:#dfe1e6;
 --accent:#1d4e89;--pour:#1a7f4b;--contre:#b3261e;--neutre:#6b7280;--jauge:#e6e8ec;
---alerte:#fff6d6;--alerte-texte:#5c4400}
+--alerte:#fff6d6;--alerte-texte:#5c4400;--une-a:#e8f0f8;--une-b:#f3f6f9;--une-c:#ebf3ee;
+--appel:#183f5b;--appel-texte:#d5e5f0}
 @media(prefers-color-scheme:dark){:root{--fond:#14161a;--surface:#1c1f25;--texte:#e9eaee;
 --doux:#a0a6b2;--trait:#343943;--accent:#8fb8ee;--pour:#5fca93;--contre:#f08a82;
---neutre:#a0a6b2;--jauge:#2b3039;--alerte:#3a3214;--alerte-texte:#f2dfa0}}
+--neutre:#a0a6b2;--jauge:#2b3039;--alerte:#3a3214;--alerte-texte:#f2dfa0;--une-a:#18202b;
+--une-b:#16191f;--une-c:#17211d;--appel:#1f3550;--appel-texte:#d5e5f0}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--fond);color:var(--texte);
 font:17px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -129,6 +131,42 @@ padding:12px 14px;margin:0 0 10px}
 .bouton.plein:hover,.bouton.plein:focus-visible{background:var(--texte);border-color:var(--texte)}
 .lettre-exemple{margin:20px 0 0;border:1px solid var(--trait);border-radius:12px;
 overflow:hidden}
+/* Accueil */
+.une{background:linear-gradient(125deg,var(--une-a),var(--une-b) 62%,var(--une-c));
+border:1px solid var(--trait);border-radius:16px;padding:28px 24px 8px;margin:0 0 8px}
+.une.avec-apercu{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:28px;
+align-items:start}
+.surtitre{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+color:var(--accent);margin:0 0 10px}
+.une h1{font-size:2.4rem;line-height:1.1;letter-spacing:-.02em}
+.une .bloc.adresse{box-shadow:0 8px 24px rgba(23,61,88,.08)}
+.apercu{background:var(--surface);border:1px solid var(--trait);border-radius:14px;
+padding:18px 18px 8px;margin:0 0 20px;box-shadow:0 12px 32px rgba(23,61,88,.08)}
+.apercu-nom{font-size:1.2rem;font-weight:700;margin:0}
+.apercu-nom a{color:var(--texte);text-decoration:none}
+.apercu-nom a:hover,.apercu-nom a:focus-visible{text-decoration:underline}
+.apercu .bref{list-style:none;padding:0;margin:14px 0 4px;font-size:.92rem}
+.apercu .bref li{padding:10px 0;border-top:1px solid var(--trait)}
+.apercu .bref li.vote{background:var(--fond);border:1px solid var(--trait);border-radius:10px;
+padding:10px 12px;margin-bottom:6px}
+.apercu .bref li.vote b{display:block;font-size:.72rem;letter-spacing:.06em;
+text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.apercu .bref li.vote+li{border-top:0}
+.apercu .actions{margin:8px 0 12px}
+h2.titre-etapes{border:0;padding:0;margin:40px 0 14px}
+.etapes li{background:var(--surface);border:1px solid var(--trait);border-radius:12px;
+padding:16px}
+.appel-lettre{background:var(--appel);color:#fff;border-radius:16px;padding:26px 28px;
+margin:32px 0 20px;display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center}
+.appel-lettre div{flex:1 1 380px;min-width:0}
+.appel-lettre h2{color:#fff;border:0;padding:0;margin:0 0 8px;font-size:1.45rem}
+.appel-lettre p{color:var(--appel-texte);margin:0}
+.appel-lettre .bouton{background:#fff;color:#183f5b;border-color:#fff}
+.appel-lettre .bouton:hover,.appel-lettre .bouton:focus-visible{background:var(--appel-texte);
+color:#183f5b}
+.appel-lettre a:focus-visible{outline-color:#fff}
+@media(max-width:760px){.une.avec-apercu{grid-template-columns:minmax(0,1fr);gap:4px}
+.une{padding:22px 16px 4px}.une h1{font-size:1.9rem}.appel-lettre{padding:22px 18px}}
 footer{border-top:1px solid var(--trait);color:var(--doux);font-size:.85rem}
 footer div{max-width:900px;margin:0 auto;padding:18px 16px 32px}
 @media(max-width:520px){h1{font-size:1.6rem}dl.contact{grid-template-columns:1fr}
@@ -202,9 +240,40 @@ def _ligne(d, chemin):
             f'<span>{escape(circo)}</span></a></li>')
 
 
-def accueil(deputes, chemins, lettre=False, exemple_lettre=False):
+def _apercu(exemple):
+    """Carte d'exemple de l'accueil : la lettre réelle de la semaine passée
+    (lettre.exemple.composer), réduite à ses lignes « En bref ». Aucun chiffre
+    n'est écrit ici : tout vient de la lettre composée à partir de la base."""
+    lignes = exemple.get("en_bref") or []
+    if not lignes:
+        return ""
+    items = []
+    for i, ligne in enumerate(lignes):
+        if i == 0 and exemple.get("vote"):
+            items.append(f'<li class="vote"><b>Le vote à retenir</b>{escape(ligne)}</li>')
+        else:
+            items.append(f"<li>{escape(ligne)}</li>")
+    groupe = exemple.get("groupe") or ""
+    if groupe and exemple.get("sigle"):
+        groupe += f" ({exemple['sigle']})"
+    origine = " · ".join(x for x in (groupe, exemple.get("lieu") or "") if x)
+    return f"""<aside class="apercu" aria-labelledby="apercu-titre">
+<p class="surtitre" id="apercu-titre">Exemple réel · semaine du {escape(exemple['debut'])}
+ au {escape(exemple['fin'])}</p>
+<p class="apercu-nom"><a href="{escape(exemple['chemin_fiche'])}">{escape(exemple['depute'])}</a></p>
+<p class="doux petit">{escape(origine)}</p>
+<ul class="bref">{''.join(items)}</ul>
+<div class="actions"><a class="bouton" href="{escape(exemple['chemin_fiche'])}">Voir sa fiche</a>
+<a class="bouton" href="exemple-lettre.html">Lire la lettre complète</a></div>
+<p class="doux petit">Résumé « En bref » de sa lettre, repris tel quel ; lettre composée le
+ {escape(exemple['compose_le'])} à partir des données officielles.</p>
+</aside>"""
+
+
+def accueil(deputes, chemins, lettre=False, exemple_lettre=False, apercu=None):
     """lettre : le service d'abonnement est en place ; exemple_lettre : la page
-    exemple-lettre.html est publiée."""
+    exemple-lettre.html est publiée ; apercu : la lettre d'exemple (dict de
+    lettre.exemple.composer), résumée dans une carte à côté de la recherche."""
     actifs = [d for d in deputes if d["en_exercice"]]
     anciens = [d for d in deputes if not d["en_exercice"]]
     groupes = sorted({(d["groupe_sigle"], d["groupe_libelle"]) for d in actifs
@@ -213,7 +282,11 @@ def accueil(deputes, chemins, lettre=False, exemple_lettre=False):
                       for s, l in groupes)
     exemple = (' <a href="exemple-lettre.html">Voir un exemple</a>.' if exemple_lettre
                else "")
+    carte = _apercu(apercu) if (apercu and exemple_lettre) else ""
     return f"""
+<div class="une{' avec-apercu' if carte else ''}">
+<div class="une-texte">
+<p class="surtitre">Assemblée nationale · 17ᵉ législature</p>
 <h1>Que fait votre député ?</h1>
 <p class="accroche">Ses votes, ses amendements, ses interventions et sa présence en commission,
  à partir des données officielles de l’Assemblée nationale.</p>
@@ -229,13 +302,26 @@ def accueil(deputes, chemins, lettre=False, exemple_lettre=False):
  <a href="methodologie.html#adresse">Comment la circonscription est trouvée</a>.
  <button class="lien" id="etranger" type="button">J’habite à l’étranger</button></p>
 </section>
+</div>
+{carte}
+</div>
+<h2 class="titre-etapes">Comment ça marche</h2>
 <ol class="etapes">
 <li><div><b>Votre adresse</b><span>pour trouver votre circonscription.</span></div></li>
 <li><div><b>Votre député</b><span>ses votes et son activité, comparés aux médianes des
  députés.</span></div></li>
 {f"""<li><div><b>Sa lettre, si vous le souhaitez</b><span>chaque semaine ou chaque mois, par
- e-mail.{exemple}</span></div></li>""" if lettre else ""}
+ e-mail. Les textes des thèmes que vous choisissez passent en premier ; rien n’est
+ retiré.{exemple}</span></div></li>""" if lettre else ""}
 </ol>
+{"""<section class="appel-lettre" aria-label="La lettre">
+<div><h2>Votre député, dans votre boîte mail</h2>
+<p>Chaque semaine ou chaque mois : ses votes, son activité et les textes débattus les
+ sept jours suivants, avec un bouton pour lui écrire avant le débat. Chaque fait renvoie
+ à sa source officielle. Sans compte : une adresse e-mail suffit, et chaque lettre
+ contient un lien pour vous désabonner.</p></div>
+<a class="bouton" href="#adresse">Trouver mon député pour m’abonner</a>
+</section>""" if lettre else ""}
 <p class="petit"><a href="pourquoi.html">Pourquoi suivre son député ?</a></p>
 <h2>Par nom ou département</h2>
 <form class="recherche" role="search" onsubmit="return false">
@@ -817,7 +903,8 @@ def generer(db, dossier, journal=print, api_url=None, editeur=None, contact=None
         NOM_SITE, "L’activité de chaque député à l’Assemblée nationale : votes, présence"
         " en commission, interventions, amendements, questions.",
         accueil(deputes, chemins, lettre=bool(api_url),
-                exemple_lettre=bool(api_url and exemple)), "", fraicheur, mentions))
+                exemple_lettre=bool(api_url and exemple), apercu=exemple),
+        "", fraicheur, mentions))
     if api_url and exemple:
         ecrire("exemple-lettre.html", page(
             f"Exemple de lettre · {NOM_SITE}",

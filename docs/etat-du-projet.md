@@ -83,6 +83,11 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **24/11/2026** — Accueil refait d'après une maquette (ChatGPT) : nom « Mon
+  député » conservé ; carte d'exemple lue dans la base (lignes « En bref » de la
+  lettre d'exemple, aucun chiffre écrit à la main), absente sans exemple ;
+  parcours en cartes ; bandeau de la lettre ; tous les éléments validés conservés.
+  Refonte limitée à l'accueil, les autres pages gardent leur présentation.
 - **23/11/2026** — Thèmes choisis par l'abonné : **mise en avant** (les textes de
   ses thèmes passent en premier, rien n'est retiré). Le filtre (retrait),
   validé auparavant avec Projet, est abandonné. Choix confirmé le 23/11/2026.
@@ -187,7 +192,8 @@ dans `/etc/systemd/system/` puis `systemctl daemon-reload`.)
   sans cookie), parcours en 3 étapes, résultat avec « Voir son activité » et
   « Recevoir sa lettre » (formulaire de la fiche), liste des députés repliée
   (affichée sans JavaScript). Exemple de lettre réelle publié si
-  `MD_EXEMPLE_LETTRE` est renseigné (circonscription choisie par l'éditeur).
+  `MD_EXEMPLE_LETTRE` est renseigné (circonscription choisie par l'éditeur) ;
+  son résumé « En bref » apparaît alors dans une carte à côté de la recherche.
 - **Ordre du jour** : seuls les points confirmés de séances confirmées (le résumé
   publié par l'Assemblée garde les points supprimés).
 

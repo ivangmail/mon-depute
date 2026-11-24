@@ -36,4 +36,8 @@ def composer(db, valeur, instant=None):
             "compose_le": jour(aujourdhui), "depute": l["depute"],
             "lieu": f"{ordinal(l['num_circo'], feminin=True)} circonscription, "
                     f"{l['departement']} ({l['num_departement']})",
-            "chemin_fiche": l["chemin_fiche"]}
+            "chemin_fiche": l["chemin_fiche"],
+            # Aperçu de l'accueil : les lignes « En bref » de cette même lettre,
+            # telles quelles ; la première décrit le vote à retenir s'il y en a un.
+            "groupe": l["groupe"], "sigle": l["sigle"],
+            "en_bref": contenu.en_bref(l), "vote": bool(l["majeurs"])}

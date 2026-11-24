@@ -367,6 +367,13 @@ class Lettre(unittest.TestCase):
         self.assertIn('role="presentation"', e["html"])
         self.assertNotIn("Vous désabonner", e["html"])   # aucun lien d'abonné
         self.assertIn('href="./' + e["chemin_fiche"], e["html"])
+        # L'aperçu de l'accueil reprend les lignes « En bref » de cette même lettre.
+        import html as html_module
+        self.assertTrue(e["en_bref"])
+        self.assertTrue(e["en_bref"][-1].startswith("Hors votes"))
+        for ligne in e["en_bref"]:
+            self.assertIn(ligne, html_module.unescape(e["html"]))
+        self.assertIsInstance(e["vote"], bool)
         self.assertIsNone(exemple.composer(db, "10-7", mercredi))   # siège vacant
         self.assertIsNone(exemple.composer(            # semaine sans activité
             db, "10-2", datetime.datetime(2030, 1, 9, tzinfo=datetime.timezone.utc)))

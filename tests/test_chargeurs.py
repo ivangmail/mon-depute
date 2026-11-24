@@ -300,18 +300,51 @@ class Indicateurs(unittest.TestCase):
         self.assertIn('id="tout" type="button" hidden', accueil)  # liste repliée par le script
         self.assertIn('data-lettre=""', accueil)
         self.assertNotIn("Sa lettre, si vous le souhaitez", accueil)
+        self.assertNotIn('class="appel-lettre"', accueil)
+        self.assertNotIn('class="apercu"', accueil)
         self.assertFalse(os.path.exists(os.path.join(dossier, "exemple-lettre.html")))
+        # Éléments validés de l'accueil, conservés par la nouvelle présentation.
+        for attendu in ("<a class=\"marque\" href=\"index.html\">Mon député</a>",
+                        "service public de géocodage\n de l’IGN",
+                        'id="etranger"', 'id="q"', 'id="g"', "Par nom ou département",
+                        "Députés ayant quitté l’Assemblée", 'href="pourquoi.html"',
+                        'href="methodologie.html"', 'href="confidentialite.html"',
+                        "Ce site n’est pas un site officiel de l’Assemblée nationale"):
+            self.assertIn(attendu, accueil)
+        self.assertNotIn("Législatives-2027", accueil)
+        self.assertNotIn("LÉGISLATIVES", accueil)
 
     def test_accueil_avec_la_lettre_et_son_exemple(self):
         dossier = os.path.join(self.tmp.name, "site-lettre")
         exemple = {"html": "<table><tr><td>LETTRE</td></tr></table>", "debut": "09/11/2026",
                    "fin": "15/11/2026", "compose_le": "18/11/2026", "depute": "Ada Durand",
                    "lieu": "2e circonscription, Ain (01)",
-                   "chemin_fiche": "deputes/ada-durand.html"}
+                   "chemin_fiche": "deputes/ada-durand.html",
+                   "groupe": "Groupe Un", "sigle": "UN", "vote": True,
+                   "en_bref": ["A voté pour le texte <test> — résultat : adopté.",
+                               "Hors votes : 2 amendements déposés."]}
         site.generer(self.db, dossier, journal=lambda m: None, api_url="https://x.fr",
                      exemple=exemple)
         accueil = pathlib.Path(dossier, "index.html").read_text(encoding="utf-8")
         self.assertIn('data-lettre="1"', accueil)
+        # Carte d'exemple : les lignes « En bref » de la lettre, échappées, rien d'autre.
+        self.assertIn('class="une avec-apercu"', accueil)
+        self.assertIn("<b>Le vote à retenir</b>A voté pour le texte &lt;test&gt;", accueil)
+        self.assertIn("<li>Hors votes : 2 amendements déposés.</li>", accueil)
+        self.assertIn("Groupe Un (UN) · 2e circonscription, Ain (01)", accueil)
+        self.assertIn("semaine du 09/11/2026\n au 15/11/2026", accueil)
+        self.assertIn('class="appel-lettre"', accueil)
+        self.assertIn("rien n’est\n retiré", accueil)
+        # Sans lignes « En bref », pas de carte ; le reste de l'accueil est inchangé.
+        site.generer(self.db, dossier, journal=lambda m: None, api_url="https://x.fr",
+                     exemple=dict(exemple, en_bref=[]))
+        sans_carte = pathlib.Path(dossier, "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('class="apercu"', sans_carte)
+        self.assertIn('class="une"', sans_carte)
+        self.assertIn('href="exemple-lettre.html"', sans_carte)
+        site.generer(self.db, dossier, journal=lambda m: None, api_url="https://x.fr",
+                     exemple=exemple)
+        accueil = pathlib.Path(dossier, "index.html").read_text(encoding="utf-8")
         self.assertIn('Sa lettre, si vous le souhaitez', accueil)
         self.assertIn('href="exemple-lettre.html"', accueil)
         page = pathlib.Path(dossier, "exemple-lettre.html").read_text(encoding="utf-8")
