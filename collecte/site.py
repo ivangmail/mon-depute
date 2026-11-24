@@ -292,7 +292,7 @@ def accueil(deputes, chemins, lettre=False, exemple_lettre=False, apercu=None):
  à partir des données officielles de l’Assemblée nationale.</p>
 <section class="bloc adresse" aria-label="Trouver votre député par votre adresse">
 <label for="adresse">Votre adresse postale</label>
-<input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 boulevard du Port, 80000 Amiens">
+<input id="adresse" type="search" autocomplete="off" placeholder="Ex. 8 bd du Port, Amiens">
 <ul id="suggestions"></ul>
 <div id="resultat" aria-live="polite" data-lettre="{'1' if lettre else ''}"></div>
 <p class="reassurance">Données officielles de l’Assemblée nationale · Sans compte · Sans cookie</p>
