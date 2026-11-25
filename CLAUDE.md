@@ -7,6 +7,8 @@ règles, journal des décisions, travail à plusieurs sessions.
 - Seule la session Claude Code pousse sur `main`. Les autres sessions poussent
   sur des branches `projet/<sujet>`, jamais sur `main`, et n'ouvrent de PR
   qu'avec l'accord de l'éditeur.
+- Une seule session Claude Code active à la fois. Avant toute modification,
+  récupérer le dernier `main` et partir de là.
 - Une décision inscrite au journal des décisions fait foi ; toute contradiction
   est soumise à l'éditeur avant d'agir.
 - Ne jamais demander ni recevoir de secret (clés, phrases secrètes, contenu de
