@@ -91,6 +91,12 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **26/11/2026** — Contacts (proposition de Projet du 26/11/2026, fusionnée) :
+  seule source, l'Assemblée nationale ; sous les contacts, mention de la source
+  et de la date des données ; rappel qu'on peut demander un rendez-vous à la
+  permanence quand elle est publiée ; sans courriel publié, la fiche le dit et
+  renvoie à l'adresse à l'Assemblée. Pas de message type pour les réseaux
+  sociaux ; pas de comparaison des contacts par groupe sur le site.
 - **26/11/2026** — Thèmes mis en avant proposés **dès l'inscription** (cases
   facultatives, dans un bloc replié du formulaire de la fiche), en plus de la
   page de gestion. Un abonnement déjà confirmé ne se modifie que par son lien de

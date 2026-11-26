@@ -474,6 +474,15 @@ def methodologie(db):
  député antérieur n’apparaît donc pas, et l’absence de mandat précédent sur une fiche ne
  signifie pas qu’il s’agit d’un premier mandat.</p>
 
+<h2 id="contacts">Contacts des députés</h2>
+<p>Les contacts affichés sur chaque fiche (courriel, permanence, téléphone, site, réseaux
+ sociaux) sont ceux que publie l’Assemblée nationale, et eux seuls : ils ne sont complétés par
+ aucune autre source, pour que la même règle s’applique à tous. Un compte absent des données de
+ l’Assemblée n’est donc pas affiché. Le message proposé dans « Lui écrire » part vers l’adresse
+ @assemblee-nationale.fr du député ; si aucun courriel n’est publié, la fiche le dit et renvoie
+ à son adresse à l’Assemblée. Quand une permanence est publiée, la fiche rappelle qu’on peut y
+ demander un rendez-vous.</p>
+
 <h2 id="lettre">La lettre d’information</h2>
 <p>La lettre applique les règles de cette page à la période qu’elle couvre, avec quelques
  règles propres.</p>

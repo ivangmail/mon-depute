@@ -255,6 +255,28 @@ def _parcours_texte(phrase, etapes):
             f'<p class="petit">{escape(phrase)}</p>{frise(etapes)}</details>')
 
 
+PERMANENCE = "Adresse publiée de circonscription"
+
+
+def _notes_contact(acteur, depute, contacts, adresse, db):
+    """Phrases autour de la liste des contacts : repli quand aucun courriel n'est
+    publié, rendez-vous à la permanence, source et date des contacts. Seules les
+    données de l'Assemblée sont utilisées, pour appliquer la même règle à tous."""
+    avant = apres = ""
+    if depute["en_exercice"] and not adresse:
+        qui = "cette députée" if acteur["civilite"] == "Mme" else "ce député"
+        avant = (f'<p>Aucune adresse électronique n’est publiée par l’Assemblée nationale pour '
+                 f'{qui}. Vous pouvez lui écrire par courrier, à son adresse à l’Assemblée.</p>')
+    if depute["en_exercice"] and any(c["type"] == PERMANENCE for c in contacts):
+        apres = ("<p>Vous pouvez aussi demander un rendez-vous à sa permanence, dont l’adresse "
+                 "figure ci-dessus.</p>")
+    date = date_source(r[0] for r in db.execute(
+        "SELECT last_modified FROM imports WHERE jeu = 'acteurs'"))
+    apres += ('<p class="doux petit">Contacts publiés par l’Assemblée nationale'
+              + (f" (données du {date})" if date else "") + ".</p>")
+    return {"avant": avant, "apres": apres}
+
+
 def _carte(valeur, libelle, detail=""):
     return (f'<div class="carte"><b>{valeur}</b><span>{escape(libelle)}</span>'
             + (f'<small>{escape(detail)}</small>' if detail else "") + "</div>")
@@ -380,6 +402,7 @@ def corps(db, uid, racine="", api_url=None):
             f'({pourcent(i["votes_abstention"] / exprimes)}).</p>')
 
     meth = f'{racine}methodologie.html'
+    notes_contact = _notes_contact(a, d, contacts, adresse, db)
     html = f"""
 <header class="entete">
 <h1>{escape(nom)}</h1>
@@ -466,7 +489,9 @@ def corps(db, uid, racine="", api_url=None):
 <section>
 <h2>Lui écrire</h2>
 {ecrire}
+{notes_contact['avant']}
 <dl class="contact">{''.join(lignes_contact) or '<dt>Contact</dt><dd>Aucun contact publié.</dd>'}</dl>
+{notes_contact['apres']}
 <p><a href="{URL_DEPUTE.format(escape(uid))}" rel="noopener">Sa fiche officielle sur le site de l’Assemblée nationale</a></p>
 </section>
 """

@@ -855,6 +855,26 @@ class Etapes493(unittest.TestCase):
         self.assertIn('<li class="ko">', bloc)
         self.assertEqual(fiche._parcours_texte("", []), "")
 
+    def test_notes_autour_des_contacts(self):
+        import sqlite3
+        from collecte import fiche
+        db = sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE imports (jeu TEXT, last_modified TEXT)")
+        db.execute("INSERT INTO imports VALUES ('acteurs', 'Tue, 10 Nov 2026 02:50:37 GMT')")
+        mme, en_exercice = {"civilite": "Mme"}, {"en_exercice": 1}
+        permanence = [{"type": "Adresse publiée de circonscription", "valeur": "1 rue X"}]
+        n = fiche._notes_contact(mme, en_exercice, permanence, "a@assemblee-nationale.fr", db)
+        self.assertEqual(n["avant"], "")
+        self.assertIn("rendez-vous à sa permanence", n["apres"])
+        self.assertIn("Contacts publiés par l’Assemblée nationale (données du 10/11/2026)",
+                      n["apres"])
+        n = fiche._notes_contact(mme, en_exercice, [], None, db)   # aucun courriel publié
+        self.assertIn("pour cette députée", n["avant"])
+        self.assertNotIn("permanence", n["apres"])
+        n = fiche._notes_contact({"civilite": "M."}, {"en_exercice": 0}, permanence, None, db)
+        self.assertEqual(n["avant"], "")                            # mandat clos
+        self.assertNotIn("rendez-vous", n["apres"])
+
     def test_texte_de_cmp(self):
         cmp = [etape("CMP-DEC", "2025-01-31", "Accord"),
                etape("CMP-DEBATS-AN-DEC", "2025-02-05", self.ADOPTE)]
