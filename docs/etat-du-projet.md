@@ -98,7 +98,8 @@ toute proposition antérieure.
 - **26/11/2026** — Rattachement des scrutins aux dossiers : corrections relues par
   l'éditeur dans `collecte/rattachements_scrutins.csv` (première : scrutins
   10063 à 10080, vie chère outre-mer, rattachés à tort à « Territoires zéro
-  chômeur » par les données de l'Assemblée) ; contrôle automatique des deux
+  chômeur » par les données de l'Assemblée ; puis 6758 corrigé, 7325 à 7348 et
+  8419 vérifiés justes) ; contrôle automatique des deux
   dernières semaines, signalé dans le point du lundi ; rien n'est corrigé
   automatiquement.
 - **26/11/2026** — Contacts (proposition de Projet du 26/11/2026, fusionnée) :
