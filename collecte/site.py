@@ -119,9 +119,10 @@ margin:6px 0 3px;background:var(--jauge)}
 td small{display:block;font-size:.78rem;white-space:nowrap}
 details.parcours{margin:6px 0 0}details.parcours summary{font-weight:400;font-size:.85rem;
 color:var(--accent)}details.parcours p{margin:6px 0 0}
-ol.frise{list-style:none;padding:0;margin:8px 0 4px;display:flex;flex-wrap:wrap;gap:8px 16px}
-ol.frise li{display:grid;grid-template-columns:auto 1fr;column-gap:6px;font-size:.8rem;
-line-height:1.3;max-width:11em}
+ol.frise{list-style:none;padding:0;margin:8px 0 4px;display:flex;flex-wrap:wrap;gap:10px 16px;
+align-items:flex-start}
+ol.frise li{display:grid;grid-template-columns:auto 1fr;align-content:start;column-gap:6px;
+font-size:.8rem;line-height:1.3;width:11em}
 ol.frise li span{grid-row:span 2;width:20px;height:20px;border-radius:50%;display:grid;
 place-items:center;background:var(--neutre);color:var(--fond);font-weight:700;font-size:.75rem}
 ol.frise li.ok span{background:var(--pour)}ol.frise li.ko span{background:var(--contre)}
