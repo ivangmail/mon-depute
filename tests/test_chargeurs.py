@@ -779,6 +779,14 @@ class Etapes(unittest.TestCase):
                 [("AN1-DEPOT", "2026-01-05", None), ("AN1-DEBATS-DEC", "2026-02-01", "adoptée")])
             self.assertEqual(etapes.pour_dossiers(db, ["DL1", "DL2"]), {
                 "DL1": "Texte adopté par l'Assemblée nationale le 01/02/2026, en 1re lecture"})
+            # Une séance prévue (datée après le jour de composition) n'est pas une étape
+            # franchie : elle n'apparaît ni dans la phrase ni dans la frise.
+            db.execute("INSERT INTO etapes (dossier_uid, ordre, code, date) VALUES "
+                       "('DL1', 99, 'SN1-DEBATS-SEANCE', '2026-03-10')")
+            self.assertEqual(etapes.pour_dossiers(db, ["DL1"], "2026-03-01"), {
+                "DL1": "Texte adopté par l'Assemblée nationale le 01/02/2026, en 1re lecture"})
+            self.assertTrue(etapes.pour_dossiers(db, ["DL1"], "2026-03-10")["DL1"].endswith(
+                "examen en séance au Sénat depuis le 10/03/2026"))
             db.close()
 
 

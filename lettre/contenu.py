@@ -512,8 +512,8 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
             votes_par_theme[theme] = votes_par_theme.get(theme, 0) + 1
     suivis = [m["dossier_uid"] for m in majeurs if m["dossier_uid"] and not m["censure"]] \
         + [t["dossier_uid"] for t in scrutins_par_texte if t["dossier_uid"]]
-    etats = etapes.pour_dossiers(db, suivis)
-    parcours = etapes.parcours_pour_dossiers(db, suivis)
+    etats = etapes.pour_dossiers(db, suivis, aujourdhui)
+    parcours = etapes.parcours_pour_dossiers(db, suivis, aujourdhui)
     titres_dossiers, uniques = {}, sorted(set(suivis))
     for i in range(0, len(uniques), 500):
         morceau = uniques[i:i + 500]

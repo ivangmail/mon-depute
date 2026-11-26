@@ -515,9 +515,11 @@ def methodologie(db):
  souvent un député, pour un à trois jours, dans une autre commission : sa commission est donc
  celle où il a siégé le plus de jours sur les 90 derniers jours. La médiane est celle des
  députés dont c’est aussi la commission.</li>
-<li><b>Intitulés en langage courant :</b> pour certains textes au titre long ou technique, la
- lettre affiche une reformulation (par exemple « Budget de l’État pour 2027 » pour « Projet de
- loi de finances pour 2027 »). Elle ne doit rien ajouter au titre officiel. Chaque libellé est
+<li><b>Intitulés en langage courant :</b> pour certains textes au titre long, technique ou peu
+ explicite, la lettre affiche une reformulation (par exemple « Budget de l’État pour 2027 » pour
+ « Projet de loi de finances pour 2027 »). Elle reprend le titre officiel ou dit ce que fait le
+ texte, d’après le texte déposé, sans jugement ni appréciation ; le contenu d’un texte peut
+ changer au cours de son examen. Chaque libellé est
  relu par l’éditeur du site avant d’être affiché, et le lien mène au dossier officiel. Les
  libellés sont publiés dans le fichier <code>collecte/libelles_textes.csv</code> du code
  source.</li>

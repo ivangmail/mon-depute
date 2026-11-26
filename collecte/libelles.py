@@ -2,7 +2,9 @@
 
 Le titre officiel d'un texte est souvent long ou technique (« Projet de loi de
 finances de fin de gestion pour 2026 »). libelles_textes.csv propose pour
-certains textes une reformulation, qui ne doit rien ajouter au titre officiel.
+certains textes une reformulation : elle reprend le titre officiel ou, quand il
+est vague, dit ce que fait le texte d'après le texte déposé, sans jugement ni
+appréciation (règle du 24/11/2026).
 Seuls les libellés marqués « validé » sont affichés : une proposition n'est
 jamais publiée sans relecture. Sans libellé validé, le titre officiel s'affiche.
 Le statut « titre officiel » note qu'un titre est déjà clair : aucun libellé

@@ -91,6 +91,16 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **26/11/2026** — Intitulés : règle de rédaction du 24/11/2026 (prise avec
+  Projet) confirmée : l'intitulé reprend le titre officiel ou, quand il est
+  vague, dit ce que fait le texte d'après le texte déposé, sans jugement ni
+  appréciation ; la Méthodologie précise que le contenu peut changer pendant
+  l'examen. Cinq intitulés validés (proposition de Projet, trois retouchés :
+  N52293, N54288, N55033). Revoir les anciens intitulés à verbe d'appréciation :
+  plus tard, en une passe. Branche `projet/libelles-2026-11-24` fusionnée puis
+  supprimée.
+- **26/11/2026** — « Où en sont ces textes » : les étapes datées après le jour
+  de composition (séances prévues) sont ignorées.
 - **26/11/2026** — Propositions de Projet du 25/11/2026
   (`docs/propositions/2026-11-25-refonte-lettre-et-site.md`) : lettre — frise
   des étapes franchies dans « Où en sont ces textes », pastille de couleur du

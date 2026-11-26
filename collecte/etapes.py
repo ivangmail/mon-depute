@@ -6,6 +6,7 @@ dépôt et début d'examen en séance. La phrase décrit la dernière étape con
 sans en tirer de conséquence juridique.
 """
 
+import datetime
 import re
 
 from .portrait import jour
@@ -212,8 +213,12 @@ def parcours(etapes):
     return sortie[-PARCOURS_MAX:]
 
 
-def _charger(db, uids):
-    """{dossier: [étapes]} pour les dossiers demandés."""
+def _charger(db, uids, aujourdhui=None):
+    """{dossier: [étapes]} pour les dossiers demandés, sans les étapes datées après
+    aujourdhui (AAAA-MM-JJ, par défaut la date du jour) : le dossier publié par
+    l'Assemblée contient aussi les séances prévues, qui ne sont pas des étapes
+    franchies."""
+    aujourdhui = aujourdhui or datetime.date.today().isoformat()
     if not any(r[0] == "etapes" for r in db.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'")):
         return {}
@@ -225,21 +230,25 @@ def _charger(db, uids):
                 "SELECT dossier_uid, ordre, code, date, statut, code_loi FROM etapes"
                 f" WHERE dossier_uid IN ({','.join('?' * len(morceau))}) ORDER BY dossier_uid,"
                 " ordre", morceau).fetchall():
+            if date and date > aujourdhui:
+                continue
             par_dossier.setdefault(uid, []).append(
                 {"ordre": ordre, "code": code, "date": date, "statut": statut,
                  "code_loi": code_loi})
     return par_dossier
 
 
-def parcours_pour_dossiers(db, uids):
+def parcours_pour_dossiers(db, uids, aujourdhui=None):
     """{dossier: parcours} pour les dossiers demandés qui ont au moins une étape datée."""
-    return {uid: p for uid, etapes in _charger(db, uids).items() if (p := parcours(etapes))}
+    return {uid: p for uid, etapes in _charger(db, uids, aujourdhui).items()
+            if (p := parcours(etapes))}
 
 
-def pour_dossiers(db, uids):
-    """{dossier: phrase} pour les dossiers demandés qui ont au moins une étape datée."""
+def pour_dossiers(db, uids, aujourdhui=None):
+    """{dossier: phrase} pour les dossiers demandés qui ont au moins une étape datée,
+    en ne tenant compte que des étapes datées au plus tard aujourdhui."""
     resultat = {}
-    for uid, etapes in _charger(db, uids).items():
+    for uid, etapes in _charger(db, uids, aujourdhui).items():
         texte = decrire(etapes)
         if texte:
             resultat[uid] = texte
