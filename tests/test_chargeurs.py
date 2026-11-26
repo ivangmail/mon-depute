@@ -790,6 +790,54 @@ class Etapes(unittest.TestCase):
             db.close()
 
 
+class Rattachements(unittest.TestCase):
+    def test_lecture_application_et_controle(self):
+        from collecte import rattachements
+        with tempfile.TemporaryDirectory() as tmp:
+            csv = os.path.join(tmp, "r.csv")
+            with open(csv, "w", encoding="utf-8") as f:
+                f.write("# commentaire\nscrutins;dossier;note\n10063-10065;DLB;erreur\n"
+                        "7348;=;vérifié\n")
+            self.assertEqual(rattachements.lire(csv),
+                             {10063: "DLB", 10064: "DLB", 10065: "DLB", 7348: "="})
+            for faute in ("10065-10063;DLB;x", "abc;DLB;x", "1;pas un dossier;x"):
+                with open(csv, "w", encoding="utf-8") as f:
+                    f.write("scrutins;dossier;note\n" + faute + "\n")
+                with self.assertRaises(ValueError):
+                    rattachements.lire(csv)
+            with open(csv, "w", encoding="utf-8") as f:
+                f.write("scrutins;dossier;note\n10063-10064;DLB;erreur\n")
+            db = base.ouvrir(os.path.join(tmp, "b.sqlite"))
+            db.executemany("INSERT INTO dossiers (uid, titre) VALUES (?,?)", [
+                ("DLA", "Pérenniser l’expérimentation territoires zéro chômeur de longue durée"),
+                ("DLB", "Lutter contre la vie chère outre-mer")])
+            titre = ("l'amendement n° 29 à l'article premier de la proposition de loi visant à "
+                     "lutter contre la vie chère outre-mer")
+            db.executemany("INSERT INTO scrutins (uid, numero, date, titre, dossier_uid) VALUES "
+                           "(?,?,?,?,?)", [("S1", 10063, "2026-11-19", titre, "DLA"),
+                                           ("S2", 10064, "2026-11-19", titre, "DLA"),
+                                           ("S3", 10065, "2026-11-19", titre, "DLA"),
+                                           ("S4", 10033, "2026-11-19", "l'ensemble de la "
+                                            "proposition de loi visant à pérenniser "
+                                            "l'expérimentation territoires zéro chômeur", "DLA")])
+            # Avant correction : les trois scrutins sur la vie chère sont signalés.
+            self.assertEqual([g["numeros"] for g in rattachements.suspects(
+                db, "2026-11-23", chemin=os.path.join(tmp, "absent.csv"))],
+                [[10063, 10064, 10065]])
+            self.assertEqual(rattachements.appliquer(db, csv), 2)
+            self.assertEqual(rattachements.appliquer(db, csv), 0)   # déjà fait
+            self.assertEqual(db.execute("SELECT dossier_uid FROM scrutins WHERE numero = 10064")
+                             .fetchone()[0], "DLB")
+            # Après : seul le scrutin non corrigé reste signalé ; hors fenêtre, rien.
+            self.assertEqual([g["numeros"] for g in rattachements.suspects(db, "2026-11-23",
+                                                                           chemin=csv)],
+                             [[10065]])
+            self.assertEqual(rattachements.suspects(db, "2026-12-20", chemin=csv), [])
+            db.close()
+        # Le fichier livré avec le code se lit sans erreur.
+        self.assertEqual(rattachements.lire()[10080], "DLR5L17N51095")
+
+
 class Etapes493(unittest.TestCase):
     """Textes adoptés sans vote, le Gouvernement ayant engagé sa responsabilité."""
     ADOPTE = ("considéré comme adopté par l'Assemblée nationale en application de l'article 49, "

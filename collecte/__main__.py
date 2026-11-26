@@ -12,7 +12,7 @@ import os
 import sys
 import time
 
-from . import base, indicateurs, site, telechargement
+from . import base, indicateurs, rattachements, site, telechargement
 from .chargeurs import CHARGEURS
 from .sources import JEUX, ORDRE
 
@@ -80,6 +80,11 @@ def publier(db, args):
     debut = time.time()
     print("[indicateurs] calcul…", flush=True)
     with db:
+        # Une correction ajoutée au fichier s'applique dès la régénération du site,
+        # sans attendre le prochain chargement des scrutins.
+        corriges = rattachements.appliquer(db)
+        if corriges:
+            print(f"[rattachements] {corriges} scrutins rattachés à leur bon dossier")
         indicateurs.calculer(db)
     print(f"[indicateurs] terminé en {time.time() - debut:.0f} s")
     debut = time.time()

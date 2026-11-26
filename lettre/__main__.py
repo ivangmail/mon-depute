@@ -20,7 +20,7 @@ import datetime
 import sqlite3
 import sys
 
-from collecte import libelles
+from collecte import libelles, rattachements
 
 from . import abonnes, config as configuration, courriel, envoi, sauvegarde
 from .stockage import ErreurStockage
@@ -93,6 +93,18 @@ def sauvegarder(cfg, dossier, depot=None, journal=print):
 JOUR_NOTIFICATION = 0  # lundi : deux jours avant l'envoi des lettres hebdomadaires
 
 
+def _plages(numeros):
+    """[10063, 10064, 10065, 10070] -> « 10063 à 10065, 10070 »."""
+    morceaux, debut = [], None
+    for i, n in enumerate(numeros):
+        if debut is None:
+            debut = n
+        if i + 1 == len(numeros) or numeros[i + 1] != n + 1:
+            morceaux.append(str(n) if n == debut else f"{debut} à {n}")
+            debut = None
+    return ", ".join(morceaux)
+
+
 def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
     """Liste dans le journal les textes qui vont apparaître dans les lettres sans
     décision sur leur intitulé. Avec notifier, le lundi, envoie à l'éditeur
@@ -103,8 +115,12 @@ def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
     donnees = sqlite3.connect(f"file:{cfg.donnees}?mode=ro", uri=True)
     try:
         sans, proposes = libelles.a_faire(donnees, aujourdhui)
+        douteux = rattachements.suspects(donnees, aujourdhui)
     finally:
         donnees.close()
+    for g in douteux:
+        journal(f"Rattachement douteux : scrutins {_plages(g['numeros'])} du {g['date']}"
+                f" rattachés à {g['dossier_uid']}")
     for uid, titre in sans:
         journal(f"Sans intitulé en langage courant : {uid} · {titre}")
     for uid, titre in proposes:
@@ -145,10 +161,26 @@ def signaler_libelles(cfg, aujourdhui=None, notifier=False, journal=print):
                        "officiel : rien n'est publié sans votre validation.", ""]
         else:
             lignes += ["INTITULÉS : rien à décider cette semaine.", ""]
+        if douteux:
+            lignes += ["RATTACHEMENTS À VÉRIFIER",
+                       "Le titre de ces scrutins n'a presque aucun mot en commun avec celui du "
+                       "dossier auquel les données de l'Assemblée les rattachent. Si c'est une "
+                       "erreur, la lettre affiche l'intitulé et le thème d'un autre texte.", ""]
+            for g in douteux:
+                jour = datetime.date.fromisoformat(g["date"]).strftime("%d/%m/%Y")
+                lignes += [f"- Scrutins {_plages(g['numeros'])} du {jour}, rattachés à "
+                           f"« {g['titre_dossier']} » ({g['dossier_uid']})",
+                           f"  Exemple : {g['exemple']}",
+                           f"  Page officielle : https://www.assemblee-nationale.fr/dyn/17/"
+                           f"scrutins/{g['numeros'][-1]}"]
+            lignes += ["", "Pour corriger, ou noter qu'un rattachement est juste, demandez à "
+                       "Claude : « vérifie les rattachements signalés ».", ""]
         lignes += ["Les lettres hebdomadaires partent mercredi."]
         en_attente = len(sans) + len(proposes)
-        sujet = (f"Mon député : point du lundi, {en_attente} intitulés à décider" if en_attente
-                 else "Mon député : point du lundi")
+        pluriel = lambda n, mot: f"{n} {mot}{'s' if n > 1 else ''}"
+        details = ([pluriel(en_attente, "intitulé") + " à décider"] if en_attente else []) + (
+            [pluriel(len(douteux), "rattachement") + " à vérifier"] if douteux else [])
+        sujet = "Mon député : point du lundi" + (", " + ", ".join(details) if details else "")
         courriel.envoyer(cfg, courriel.construire(cfg, cfg.contact, sujet, "\n".join(lignes)))
         journal(f"Point du lundi envoyé à l'éditeur ({cfg.contact})")
     return len(sans) + len(proposes)

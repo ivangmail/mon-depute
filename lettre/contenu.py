@@ -114,12 +114,22 @@ def votes_par_texte(votes, scrutins=()):
     return sorted(groupes.values(), key=lambda g: (-g["total"], -g["sans"], g["texte"]))
 
 
+def devant(elements, limite, en_avant):
+    """Les « limite » premiers éléments, choisis comme pour un abonné sans thème,
+    puis réordonnés : ceux que l'abonné met en avant d'abord. Les autres suivent,
+    dans l'ordre d'origine. La mise en avant ne fait ainsi rien disparaître des
+    listes limitées : tous les abonnés d'une circonscription voient les mêmes
+    textes, seul l'ordre change."""
+    elements = list(elements)
+    return sorted(elements[:limite], key=lambda e: not en_avant(e)) + elements[limite:]
+
+
 def textes_votes(l):
-    """Détail des votes par texte, avec en premier les textes des thèmes mis en
-    avant par l'abonné (voir mettre_en_avant)."""
+    """Détail des votes par texte ; parmi les LIMITE affichés, les textes des
+    thèmes mis en avant par l'abonné en premier (voir mettre_en_avant)."""
     groupes = votes_par_texte(l.get("autres_votes") or [], l.get("scrutins_par_texte") or [])
     avant = l.get("dossiers_en_avant") or set()
-    return sorted(groupes, key=lambda g: g["uid"] not in avant)  # tri stable
+    return devant(groupes, LIMITE, lambda g: g["uid"] in avant)
 
 
 def mettre_en_avant(l, choisis):
@@ -136,8 +146,8 @@ def mettre_en_avant(l, choisis):
     f = dict(l)
     f["themes_choisis"] = [t for t in themes.THEMES if t in choisis]
     f["dossiers_en_avant"] = avant
-    f["amendements_par_texte"] = sorted(l.get("amendements_par_texte") or [],
-                                        key=lambda t: t[3] not in avant)
+    f["amendements_par_texte"] = devant(l.get("amendements_par_texte") or [], LIMITE,
+                                        lambda t: t[3] in avant)
     dossier_du_texte = {t[0]: t[3] for t in l.get("amendements_par_texte") or []}
     f["amendements_exemples"] = sorted(l.get("amendements_exemples") or [],
                                        key=lambda a: dossier_du_texte.get(a["texte"]) not in avant)
@@ -724,14 +734,14 @@ def rubriques(l, site_url=None):
     # 3. Où en sont les textes votés : un vote « adopté » à l'Assemblée n'est pas une loi.
     etats, noms = l.get("etats") or {}, l.get("themes") or {}
     ordre = [m["dossier_uid"] for m in l["majeurs"] if m.get("dossier_uid") and not m["censure"]]
-    avant = l.get("dossiers_en_avant") or set()
-    ordre = sorted(ordre, key=lambda u: u not in avant)
     ordre += [g["uid"] for g in textes_votes(l)[:LIMITE]]
-    vus, elements = set(), []
+    retenus = []
     for uid in ordre:
-        if uid in vus or uid not in etats or len(elements) >= LIMITE_ETATS:
-            continue
-        vus.add(uid)
+        if uid not in retenus and uid in etats:
+            retenus.append(uid)
+    avant = l.get("dossiers_en_avant") or set()
+    elements = []
+    for uid in devant(retenus, LIMITE_ETATS, lambda u: u in avant)[:LIMITE_ETATS]:
         titre = ((l.get("libelles") or {}).get(uid)
                  or fiche.majuscule((l.get("titres_dossiers") or {}).get(uid) or "Texte"))
         elements.append((lier(f"{noms[uid]} — " if noms.get(uid) else "", titre,
@@ -749,11 +759,12 @@ def rubriques(l, site_url=None):
     if textes:
         noms = l.get("themes_agenda") or {}
         avant = l.get("dossiers_en_avant") or set()
-        retenus = sorted(textes, key=lambda t: (not t["vote"], t["dossier_uid"] not in avant,
-                                                not t["sa_commission"],
+        # Choix des textes affichés sans tenir compte des thèmes de l'abonné ; ses
+        # thèmes ne changent que l'ordre d'affichage.
+        retenus = sorted(textes, key=lambda t: (not t["vote"], not t["sa_commission"],
                                                 t["date"]))[:LIMITE_AGENDA]
         elements = []
-        for t in sorted(retenus, key=lambda t: t["date"]):
+        for t in sorted(retenus, key=lambda t: (t["dossier_uid"] not in avant, t["date"])):
             theme = noms.get(t["dossier_uid"])
             precisions = []
             if t["vote"] and t["dossier_uid"]:  # sans dossier, la ligne est le vote lui-même

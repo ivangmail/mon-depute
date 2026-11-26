@@ -1,0 +1,9 @@
+# Corrections du dossier auquel les données ouvertes de l'Assemblée rattachent
+# certains scrutins. Une correction n'est ajoutée qu'après vérification sur la
+# page officielle du scrutin, et relue par l'éditeur du site.
+# Une ligne par scrutin ou par suite de scrutins : numéro (« 10080 ») ou plage
+# (« 10063-10080 ») ; dossier correct, ou « = » pour noter qu'un rattachement
+# signalé comme douteux a été vérifié et qu'il est juste ; note datée.
+# Les lignes qui commencent par # sont ignorées.
+scrutins;dossier;note
+10063-10080;DLR5L17N51095;vie chère outre-mer, rattachée à tort à N51962 (Territoires zéro chômeur) ; page officielle du scrutin 10080 : N51095 ; validé par l'éditeur le 26/11/2026

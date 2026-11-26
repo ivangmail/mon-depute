@@ -91,6 +91,16 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **26/11/2026** — Mise en avant des thèmes : les textes affichés dans une liste
+  limitée (ordre du jour, votes texte par texte, « Où en sont ces textes »,
+  amendements) sont choisis comme pour un abonné sans thème, puis seulement
+  réordonnés (correction : des textes disparaissaient de l'ordre du jour).
+- **26/11/2026** — Rattachement des scrutins aux dossiers : corrections relues par
+  l'éditeur dans `collecte/rattachements_scrutins.csv` (première : scrutins
+  10063 à 10080, vie chère outre-mer, rattachés à tort à « Territoires zéro
+  chômeur » par les données de l'Assemblée) ; contrôle automatique des deux
+  dernières semaines, signalé dans le point du lundi ; rien n'est corrigé
+  automatiquement.
 - **26/11/2026** — Contacts (proposition de Projet du 26/11/2026, fusionnée) :
   seule source, l'Assemblée nationale ; sous les contacts, mention de la source
   et de la date des données ; rappel qu'on peut demander un rendez-vous à la

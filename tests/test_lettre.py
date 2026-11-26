@@ -351,6 +351,28 @@ class Lettre(unittest.TestCase):
                          (0, 1, 1, 0))
         self.assertEqual(len(self.courriels()), 1)
 
+    def test_mise_en_avant_ne_retire_rien(self):
+        # Régression du 26/11/2026 : les textes des thèmes choisis passaient devant
+        # AVANT la coupe à 8 de l'ordre du jour, et d'autres textes disparaissaient.
+        import sqlite3
+        self.assertEqual(contenu.devant([1, 2, 3, 4, 5], 3, lambda x: x == 3), [3, 1, 2, 4, 5])
+        db = sqlite3.connect(self.config.donnees)
+        db.row_factory = sqlite3.Row
+        lettre = contenu.composer(db, "10", "2", "2025-07-08", "2025-07-15")
+        db.close()
+        lettre["agenda"] = [{"dossier_uid": f"D{i}", "titre": f"Texte {i}",
+                             "date": f"2025-07-{16 + i:02d}", "vote": None,
+                             "sa_commission": False} for i in range(12)]
+        lettre["themes_agenda"] = {f"D{i}": ("Défense" if i >= 9 else "Budget et fiscalité")
+                                   for i in range(12)}
+        def agenda(l):
+            return [u for t, _, e in contenu.rubriques(l, "https://s")
+                    if t.startswith("À l'ordre du jour") for _, u in e if u]
+        sans = agenda(lettre)
+        avec = agenda(contenu.mettre_en_avant(lettre, ["Défense"]))
+        self.assertEqual(sorted(sans), sorted(avec))   # mêmes textes, seul l'ordre change
+        self.assertNotIn(contenu.URL_DOSSIER.format("D9"), avec)  # hors des 8 premiers
+
     def test_barres_en_caracteres(self):
         self.assertEqual(contenu.barre_texte(0, 300), "░" * 20)
         self.assertEqual(contenu.barre_texte(1, 300), "█" + "░" * 19)   # jamais invisible
@@ -673,6 +695,38 @@ class Lettre(unittest.TestCase):
         self.assertIn("ABONNEMENTS (nombres seulement, aucune adresse)", contenu_point)
         self.assertIn("- Abonnés actifs : 0", contenu_point)
         self.assertNotIn("@exemple.fr", contenu_point.replace("editeur@exemple.fr", ""))
+
+    def test_point_du_lundi_signale_les_rattachements_douteux(self):
+        import dataclasses
+        import sqlite3
+        from unittest import mock
+        from collecte import libelles, rattachements
+        from lettre.__main__ import _plages, signaler_libelles
+        self.assertEqual(_plages([10063, 10064, 10065, 10070]), "10063 à 10065, 10070")
+        db = sqlite3.connect(self.config.donnees)
+        db.execute("INSERT INTO dossiers (uid, titre, procedure) VALUES ('DX', 'Pérenniser "
+                   "l’expérimentation territoires zéro chômeur de longue durée',"
+                   " 'Proposition de loi ordinaire')")
+        db.executemany("INSERT INTO scrutins (uid, numero, date, titre, dossier_uid) VALUES "
+                       "(?,?,?,?,?)", [
+                           (f"S{n}", n, "2025-07-10", f"l'amendement n° {n} à l'article 2 de la "
+                            "proposition de loi visant à lutter contre la vie chère outre-mer",
+                            "DX") for n in (40, 41, 42)])
+        db.commit()
+        db.close()
+        vide = os.path.join(self.tmp.name, "vide.csv")
+        open(vide, "w").close()
+        config = dataclasses.replace(self.config, contact="editeur@exemple.fr")
+        journal = []
+        with mock.patch.object(libelles, "FICHIER", vide), \
+                mock.patch.object(rattachements, "FICHIER", vide):
+            signaler_libelles(config, "2025-07-14", True, journal.append)
+        self.assertIn("Rattachement douteux : scrutins 40 à 42 du 2025-07-10 rattachés à DX",
+                      journal)
+        message = self.courriels()[-1]
+        self.assertTrue(message["Subject"].endswith("1 rattachement à vérifier"))
+        self.assertIn("RATTACHEMENTS À VÉRIFIER", message.get_content())
+        self.assertIn("/scrutins/42", message.get_content())
 
     def test_bilan_des_abonnements(self):
         db = abonnes.ouvrir(self.config.abonnes)

@@ -12,7 +12,7 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
-from . import etapes
+from . import etapes, rattachements
 from .sources import HISTORIQUE, LEGISLATURE
 
 NS = "{http://schemas.assemblee-nationale.fr/referentiel}"
@@ -242,6 +242,8 @@ def charger_scrutins(db, chemins):
                             "INSERT OR REPLACE INTO votes VALUES (?,?,?,?,?)",
                             (uid, votant.get("acteurRef"), groupe.get("organeRef"),
                              position, 1 if votant.get("parDelegation") == "true" else 0))
+    # Corrections relues du dossier de certains scrutins (erreurs de la source).
+    rattachements.appliquer(db)
     return db.execute("SELECT count(*) FROM scrutins").fetchone()[0]
 
 

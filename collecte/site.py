@@ -609,7 +609,12 @@ def methodologie(db):
 <li>Quelques réunions sont rattachées à des organes que l’Assemblée ne décrit dans aucun
  de ses référentiels publiés.</li>
 <li>Le contenu des amendements déclarés irrecevables n’est pas publié.</li>
-<li>Les données sont celles que publie l’Assemblée : une erreur à la source se retrouve ici.</li>
+<li>Les données sont celles que publie l’Assemblée : une erreur à la source se retrouve ici.
+ Le dossier auquel un scrutin est rattaché est contrôlé chaque semaine : quand le titre du
+ scrutin n’a presque aucun mot en commun avec celui de son dossier, l’éditeur vérifie sur la
+ page officielle du scrutin. Les corrections sont publiées dans le fichier
+ <code>collecte/rattachements_scrutins.csv</code> du code source (par exemple, le 19/11/2026,
+ 18 scrutins sur la vie chère outre-mer rattachés à tort à un autre texte).</li>
 </ul>
 """
 
