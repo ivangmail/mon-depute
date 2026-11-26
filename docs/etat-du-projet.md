@@ -89,6 +89,15 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **26/11/2026** — Propositions de Projet du 25/11/2026
+  (`docs/propositions/2026-11-25-refonte-lettre-et-site.md`) : lettre — frise
+  des étapes franchies dans « Où en sont ces textes », pastille de couleur du
+  groupe, cases de présence en commission, barres dans la version texte ;
+  « Ses votes par thème » en bloc séparé **écarté** (déjà couvert par la
+  participation). Fiche du site : **refonte lancée**, en commençant par le
+  parcours d'un texte et une barre sous chaque vote ; hémicycle ensuite.
+  Amendements du budget classés par mots-clés : **attendre** un usage réel des
+  thèmes. Tests GitHub étendus aux branches `projet/**`.
 - **24/11/2026** — Accueil refait d'après une maquette (ChatGPT) : nom « Mon
   député » conservé ; carte d'exemple lue dans la base (lignes « En bref » de la
   lettre d'exemple, aucun chiffre écrit à la main), absente sans exemple ;

@@ -4,7 +4,7 @@ name: Tests
 # Ici, on vérifie seulement que les tests passent à chaque modification.
 on:
   push:
-    branches: [main]
+    branches: [main, "projet/**"]
   pull_request:
   workflow_dispatch:
 
