@@ -241,6 +241,68 @@ def _participation(l, phrases):
     return _carte("".join(corps))
 
 
+SENS = {"adopté": ("✓", POUR), "rejeté": ("✕", CONTRE), "neutre": ("•", ABSENT)}
+PRESENCES = {"présent": ("présent", "#dcefe2"), "absent": ("absent", "#f6dcd5"),
+             "excusé": ("excusé", "#f3e3b3")}
+
+
+def _rangees(cellules, par_rangee):
+    """Cellules de tableau réparties en rangées de largeur égale."""
+    largeur = f"{100 // par_rangee}%"
+    rangees = []
+    for i in range(0, len(cellules), par_rangee):
+        morceau = cellules[i:i + par_rangee]
+        morceau += ["&nbsp;"] * (par_rangee - len(morceau))
+        rangees.append("<tr>" + "".join(
+            f'<td width="{largeur}" valign="top" style="padding:0 6px 8px 0">{c}</td>'
+            for c in morceau) + "</tr>")
+    return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            f'style="margin-top:8px">{"".join(rangees)}</table>')
+
+
+def frise(etapes):
+    """Étapes franchies d'un texte : symbole (✓ adopté, ✕ rejeté, • autre), libellé
+    et date. La couleur double le symbole et le libellé, elle ne les remplace pas."""
+    cellules = []
+    for e in etapes:
+        symbole, couleur = SENS.get(e["sens"], SENS["neutre"])
+        cellules.append(
+            f'<span style="{_style(display="inline-block", width="20px", height="20px", line_height="20px", text_align="center", border_radius="10px", background=couleur, color="#ffffff", font_size="12px", font_weight="bold")}">{symbole}</span>'
+            f'<div style="{_style(font_size="12px", line_height="1.3", color=TEXTE, margin_top="4px")}">{_e(e["libelle"])}</div>'
+            f'<div style="{_style(font_size="12px", color=DOUX)}">{_e(jour(e["date"]))}</div>')
+    return _rangees(cellules, 4) if cellules else ""
+
+
+def _ou_en_sont(l, phrases, elements):
+    """Chaque texte : sa frise des étapes franchies, puis la phrase sur sa dernière étape."""
+    par_url = {contenu.URL_DOSSIER.format(u): u for u in (l.get("parcours") or {})}
+    corps = [_p(_e(p), 15) for p in phrases]
+    for i, (texte, url) in enumerate(elements):
+        etapes = (l.get("parcours") or {}).get(par_url.get(url), [])
+        corps.append(_bloc(_p(_element(texte, url), 15, TEXTE, "0") + frise(etapes),
+                           haut=i > 0 or bool(phrases)))
+    return _carte("".join(corps))
+
+
+def _commission(l, phrases, elements):
+    """Une case par réunion dotée d'une feuille de présence, puis la liste habituelle."""
+    cellules = []
+    for f in l.get("feuilles") or []:
+        libelle, fond = PRESENCES.get(f["presence"], (f["presence"], FILET))
+        if l["feminin"] and f["presence"] in PRESENCES:
+            libelle += "e"
+        cellules.append(
+            f'<div style="{_style(background=fond, border_radius="6px", padding="6px 4px", text_align="center")}">'
+            f'<div style="{_style(font_size="12px", font_weight="bold", color=TEXTE)}">{_e(jour(f["date"])[:5])}</div>'
+            f'<div style="{_style(font_size="12px", color=TEXTE)}">{_e(libelle)}</div></div>')
+    cases = (_rangees(cellules, 6) + _p("Une case par réunion, dans l’ordre des dates.", 12,
+                                         DOUX, "0 0 4px")) if cellules else ""
+    corps = [_p(_e(p), 15) for p in phrases[:1]] + [cases] + [_p(_e(p), 15) for p in phrases[1:]]
+    for i, (texte, url) in enumerate(elements):
+        corps.append(_bloc(_p(_element(texte, url), 15, TEXTE, "0"), haut=True))
+    return _carte("".join(corps))
+
+
 def _generique(phrases, elements):
     corps = [_p(_e(p), 15) for p in phrases]
     for i, (texte, url) in enumerate(elements):
@@ -267,7 +329,9 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
         f'<p style="{_style(margin="0", font_size="24px", font_weight="bold", line_height="1.25", color=TEXTE)}">'
         f"{_e(l['depute'])}</p>"
         f'<p style="{_style(margin="2px 0 0", font_size="15px", color=DOUX)}">'
-        f"{_e(l['groupe'] or '')}{' (' + _e(l['sigle']) + ')' if l.get('sigle') else ''} · {_e(lieu)}</p>"
+        + (f'<span style="{_style(color=_e(l["couleur_groupe"]), font_size="15px")}">●</span>&nbsp;'
+           if l.get("couleur_groupe") else "")
+        + f"{_e(l['groupe'] or '')}{' (' + _e(l['sigle']) + ')' if l.get('sigle') else ''} · {_e(lieu)}</p>"
         "</td></tr>"]
 
     for titre, phrases, elements in contenu.rubriques(l, site_url):
@@ -278,6 +342,10 @@ def html(l, site_url, lien_gestion, lien_desabonnement, contact=None):
             lignes.append(_essentiel(l, phrases))
         elif titre == "Sa participation aux scrutins":
             lignes.append(_participation(l, phrases))
+        elif titre == "Où en sont ces textes":
+            lignes.append(_ou_en_sont(l, phrases, elements))
+        elif titre == "En commission":
+            lignes.append(_commission(l, phrases, elements))
         else:
             lignes.append(_generique(phrases, elements))
 

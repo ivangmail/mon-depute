@@ -514,7 +514,16 @@ def methodologie(db):
  ou une lecture définitive à l’Assemblée. Un texte sur lequel le Gouvernement a engagé sa
  responsabilité (article 49, alinéa 3, de la Constitution) est dit « considéré comme adopté »,
  puisqu’il n’y a pas eu de vote sur le texte. L’état affiché est celui connu le jour où la
- lettre est composée ; ces étapes sont publiées avec quelques jours de retard.</li>
+ lettre est composée ; ces étapes sont publiées avec quelques jours de retard. Une frise
+ montre les étapes déjà franchies et datées (dépôt, votes de chaque assemblée, commission mixte
+ paritaire, Conseil constitutionnel, promulgation), huit au plus, les plus récentes : ✓ pour
+ un texte adopté, ✕ pour un texte rejeté ou un désaccord, • pour les autres étapes. Elle ne
+ montre aucune étape à venir. Un texte adopté sans vote (article 49, alinéa 3) est signalé
+ « sans vote (49.3) ».</li>
+<li><b>En commission :</b> une case par réunion de la période dotée d’une feuille de présence,
+ avec la mention publiée par l’Assemblée (présent, absent, excusé).</li>
+<li><b>Version texte :</b> les barres y sont dessinées en caractères (█ pour la part
+ mesurée, ░ pour le reste), sur vingt caractères.</li>
 </ul>
 
 <h2 id="themes">Les thèmes</h2>

@@ -351,6 +351,28 @@ class Lettre(unittest.TestCase):
                          (0, 1, 1, 0))
         self.assertEqual(len(self.courriels()), 1)
 
+    def test_barres_en_caracteres(self):
+        self.assertEqual(contenu.barre_texte(0, 300), "░" * 20)
+        self.assertEqual(contenu.barre_texte(1, 300), "█" + "░" * 19)   # jamais invisible
+        self.assertEqual(contenu.barre_texte(41, 300), "███" + "░" * 17)
+        self.assertEqual(contenu.barre_texte(5, 0), "")
+
+    def test_frise_et_presences(self):
+        from lettre import visuel
+        etapes = [{"libelle": "Dépôt, Assemblée", "date": "2026-10-01", "sens": "neutre"},
+                  {"libelle": "Assemblée, 1re lecture", "date": "2026-11-04", "sens": "rejeté"}]
+        html = visuel.frise(etapes)
+        self.assertIn("✕", html)
+        self.assertIn("Assemblée, 1re lecture", html)
+        self.assertIn("04/11/2026", html)
+        self.assertEqual(visuel.frise([]), "")
+        l = {"feminin": True, "feuilles": [
+            {"date": "2026-11-03", "presence": "absent", "organe": "X"},
+            {"date": "2026-11-04", "presence": "présent", "organe": "X"}]}
+        cases = visuel._commission(l, ["Présente à 1 des 2 réunions."], [])
+        self.assertIn("absente", cases)
+        self.assertIn("présente", cases)
+
     def test_exemple_publie_sur_le_site(self):
         import sqlite3
         from lettre import exemple

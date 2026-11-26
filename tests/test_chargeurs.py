@@ -808,6 +808,28 @@ class Etapes493(unittest.TestCase):
         self.assertEqual(etapes.decrire(suite), "Texte adopté définitivement par le Parlement le "
                                                 "02/02/2026, pas encore promulgué")
 
+    def test_parcours_etapes_franchies(self):
+        # Budget 2026 : seules les étapes passées et datées, aucune étape à venir.
+        suite = [etape("AN1-DEPOT", "2025-10-14"),
+                 etape("AN1-DEBATS-SEANCE", "2025-10-24"),
+                 etape("AN1-DEBATS-DEC", "2025-11-21", "rejeté"),
+                 etape("SN1-DEPOT", "2025-11-22"),
+                 etape("SN1-DEBATS-DEC", "2025-12-15", "modifié"),
+                 etape("CMP-DEC", "2026-01-02", "Désaccord"),
+                 etape("ANNLEC-DEBATS-DEC", "2026-01-27", self.ADOPTE),
+                 etape("ANLDEF-DEPOT", None)]
+        self.assertEqual([(e["libelle"], e["date"], e["sens"]) for e in etapes.parcours(suite)], [
+            ("Dépôt, Assemblée", "2025-10-14", "neutre"),
+            ("Assemblée, 1re lecture", "2025-11-21", "rejeté"),
+            ("Sénat, 1re lecture", "2025-12-15", "adopté"),
+            ("Commission mixte paritaire, désaccord", "2026-01-02", "rejeté"),
+            ("Assemblée, nouvelle lecture, sans vote (49.3)", "2026-01-27", "adopté")])
+        longue = [etape("AN1-DEPOT", "2025-01-01")] + [
+            etape(f"AN{i}-DEBATS-DEC", f"2025-02-{i:02d}", "adopté") for i in range(1, 12)]
+        self.assertEqual(len(etapes.parcours(longue)), etapes.PARCOURS_MAX)
+        self.assertEqual(etapes.parcours(longue)[-1]["date"], "2025-02-11")  # les plus récentes
+        self.assertEqual(etapes.parcours([etape("AN1-DEPOT", None)]), [])
+
     def test_texte_de_cmp(self):
         cmp = [etape("CMP-DEC", "2025-01-31", "Accord"),
                etape("CMP-DEBATS-AN-DEC", "2025-02-05", self.ADOPTE)]

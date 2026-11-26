@@ -162,8 +162,58 @@ def decrire(etapes):
     return f"Texte déposé {_vers(depot['code'].split('-')[0])} le {jour(depot['date'])}"
 
 
-def pour_dossiers(db, uids):
-    """{dossier: phrase} pour les dossiers demandés qui ont au moins une étape datée."""
+PARCOURS_MAX = 8  # étapes affichées au plus ; au-delà, les plus récentes
+
+
+def _assemblee(prefixe):
+    return "Assemblée" if prefixe.startswith("AN") else "Sénat"
+
+
+def parcours(etapes):
+    """Étapes déjà franchies et datées, dans l'ordre : [{libelle, date, sens}].
+
+    sens vaut « adopté », « rejeté » ou « neutre » (dépôt, décision du Conseil
+    constitutionnel, retrait). Aucune étape future n'est déduite. Au-delà de
+    PARCOURS_MAX étapes, seules les plus récentes sont gardées."""
+    datees = sorted((e for e in etapes if e.get("date")), key=_rang)
+    sortie, depose = [], False
+    for e in datees:
+        code, statut = e["code"], _statut(e)
+        prefixe = code.split("-")[0]
+        if code.endswith("-DEPOT") and not depose and prefixe != "CMP":
+            depose = True
+            sortie.append({"libelle": f"Dépôt, {_assemblee(prefixe)}", "date": e["date"],
+                           "sens": "neutre"})
+        elif code == "CMP-DEC":
+            accord = statut.startswith("accord")
+            sortie.append({"libelle": "Commission mixte paritaire" + ("" if accord else
+                                                                     ", désaccord"),
+                           "date": e["date"], "sens": "adopté" if accord else "rejeté"})
+        elif code.endswith("-DEC") and e.get("statut"):
+            if code.startswith("CMP-DEBATS-"):
+                libelle = f"{_assemblee(code.split('-')[2])}, texte de la CMP"
+            else:
+                lecture = {"en 1re lecture": "1re lecture"}.get(_lecture(prefixe),
+                                                                 _lecture(prefixe)[3:])
+                libelle = _assemblee(prefixe) + (f", {lecture}" if lecture else "")
+            if statut.startswith("considéré comme"):
+                libelle += ", sans vote (49.3)" if "49" in (e.get("statut") or "") else ""
+            sens = ("rejeté" if "rejeté" in statut.split(",")[0]
+                    else "adopté" if statut.startswith(("adopté", "modifié", "considéré"))
+                    else "neutre")
+            sortie.append({"libelle": libelle, "date": e["date"], "sens": sens})
+        elif code == "CC-CONCLUSION":
+            sortie.append({"libelle": "Conseil constitutionnel", "date": e["date"],
+                           "sens": "neutre"})
+        elif code == "PROM-PUB":
+            sortie.append({"libelle": "Promulgation", "date": e["date"], "sens": "adopté"})
+        elif code.endswith("-RTRINI"):
+            sortie.append({"libelle": "Retrait", "date": e["date"], "sens": "neutre"})
+    return sortie[-PARCOURS_MAX:]
+
+
+def _charger(db, uids):
+    """{dossier: [étapes]} pour les dossiers demandés."""
     if not any(r[0] == "etapes" for r in db.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'")):
         return {}
@@ -178,8 +228,18 @@ def pour_dossiers(db, uids):
             par_dossier.setdefault(uid, []).append(
                 {"ordre": ordre, "code": code, "date": date, "statut": statut,
                  "code_loi": code_loi})
+    return par_dossier
+
+
+def parcours_pour_dossiers(db, uids):
+    """{dossier: parcours} pour les dossiers demandés qui ont au moins une étape datée."""
+    return {uid: p for uid, etapes in _charger(db, uids).items() if (p := parcours(etapes))}
+
+
+def pour_dossiers(db, uids):
+    """{dossier: phrase} pour les dossiers demandés qui ont au moins une étape datée."""
     resultat = {}
-    for uid, etapes in par_dossier.items():
+    for uid, etapes in _charger(db, uids).items():
         texte = decrire(etapes)
         if texte:
             resultat[uid] = texte

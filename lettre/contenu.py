@@ -513,6 +513,7 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
     suivis = [m["dossier_uid"] for m in majeurs if m["dossier_uid"] and not m["censure"]] \
         + [t["dossier_uid"] for t in scrutins_par_texte if t["dossier_uid"]]
     etats = etapes.pour_dossiers(db, suivis)
+    parcours = etapes.parcours_pour_dossiers(db, suivis)
     titres_dossiers, uniques = {}, sorted(set(suivis))
     for i in range(0, len(uniques), 500):
         morceau = uniques[i:i + 500]
@@ -556,6 +557,19 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
         WHERE s.acteur_uid = :uid AND s.role = 'auteur' AND doc.type = 'PION'
           AND doc.legislature = :leg AND doc.date_depot >= :debut AND doc.date_depot < :fin
         ORDER BY doc.date_depot DESC""", {**bornes, "leg": LEGISLATURE}).fetchall()
+    # Toutes les réunions de la période dotées d'une feuille de présence, quelle que
+    # soit la mention (présent, absent, excusé), dans l'ordre des dates.
+    feuilles = db.execute("""
+        SELECT substr(r.debut, 1, 10) AS date, p.presence,
+               coalesce(o.libelle_abrege, o.libelle) AS organe FROM presences p
+        JOIN reunions_comptees rc ON rc.uid = p.reunion_uid
+        JOIN reunions r ON r.uid = p.reunion_uid
+        LEFT JOIN organes o ON o.uid = r.organe_uid
+        WHERE p.acteur_uid = :uid AND substr(r.debut, 1, 10) >= :debut
+          AND substr(r.debut, 1, 10) < :fin
+        ORDER BY r.debut""", bornes).fetchall()
+    couleur = db.execute("SELECT couleur FROM organes WHERE uid = ?",
+                         (d["groupe_uid"],)).fetchone()
     commission = db.execute("""
         SELECT sum(p.presence = 'présent'), count(*) FROM presences p
         JOIN reunions_comptees rc ON rc.uid = p.reunion_uid
@@ -570,6 +584,7 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
     lettre = {
         "depute": f"{d['prenom']} {d['nom']}", "feminin": d["civilite"] == "Mme",
         "groupe": d["groupe_libelle"], "sigle": d["groupe_sigle"],
+        "couleur_groupe": couleur[0] if couleur and couleur[0] else None,
         "departement": d["departement"], "num_departement": d["num_departement"],
         "num_circo": str(int(d["num_circo"])), "chemin_fiche": chemins[uid],
         "debut": debut, "fin": fin,
@@ -591,12 +606,12 @@ def composer(db, departement, circo, debut, fin, aujourdhui=None):
         "themes": themes_des_textes,
         "votes_par_theme": sorted(votes_par_theme.items(), key=lambda t: (-t[1], t[0])),
         "commission_votes": commission_votes,
-        "etats": etats, "titres_dossiers": titres_dossiers,
+        "etats": etats, "parcours": parcours, "titres_dossiers": titres_dossiers,
         # Les états sont ceux connus le jour où la lettre est composée, pas à la fin de la période.
         "date_etats": aujourdhui,
         "agenda": agenda(db, aujourdhui, sa_commission["organe_uid"] if sa_commission else None),
         "themes_agenda": {},
-        "reunions": [dict(r) for r in reunions],
+        "reunions": [dict(r) for r in reunions], "feuilles": [dict(f) for f in feuilles],
         "propositions": [dict(p) for p in propositions],
         "commission_present": commission[0] or 0, "commission_reunions": commission[1] or 0,
     }
@@ -863,6 +878,33 @@ def rubriques(l, site_url=None):
 TAILLE_HTML_MAX = 90_000  # Gmail tronque les messages dont le HTML dépasse environ 100 Ko
 
 
+LARGEUR_BARRE = 20  # caractères d'une barre de la version texte
+
+
+def barre_texte(valeur, total, largeur=LARGEUR_BARRE):
+    """Barre en caractères pour la version texte : █ pour la part, ░ pour le reste.
+    Une valeur non nulle reste visible (un caractère au moins)."""
+    if not total:
+        return ""
+    plein = round(largeur * min(valeur, total) / total)
+    if valeur and not plein:
+        plein = 1
+    return "█" * plein + "░" * (largeur - plein)
+
+
+def barres_participation(l):
+    """Lignes de barres de la version texte : le député, puis les médianes."""
+    il = "Elle" if l["feminin"] else "Il"
+    lignes = [(il, l["exprimes"])]
+    if l.get("mediane_groupe") is not None and l["sigle"] != "NI":
+        lignes.append((f"Médiane {l['sigle']}", l["mediane_groupe"]))
+    if l.get("mediane_tous") is not None:
+        lignes.append(("Médiane Assemblée", l["mediane_tous"]))
+    largeur = max(len(nom) for nom, _ in lignes)
+    return [f"  {nom.ljust(largeur)}  {barre_texte(v, l['scrutins'])}  {_nombre(v)}"
+            for nom, v in lignes] if l["scrutins"] else []
+
+
 def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None, visuel=True):
     """Renvoie (sujet, version texte, version HTML).
 
@@ -885,8 +927,9 @@ def rendre(l, site_url, lien_gestion, lien_desabonnement, contact=None, visuel=T
             f'<p style="margin:0 0 20px;color:#5b6270">{escape(entete.split(", ", 1)[1])}'
             f'<br>Activité {escape(periode)}</p>']
     for titre, phrases, elements in rubriques(l, site_url):
-        texte += [titre.upper()] + phrases + [f"- {t.replace(MARQUE, '')}" + (f"\n  {u}" if u else "")
-                                              for t, u in elements] + [""]
+        barres = barres_participation(l) if titre == "Sa participation aux scrutins" else []
+        texte += [titre.upper()] + phrases[:1] + barres + phrases[1:] + [
+            f"- {t.replace(MARQUE, '')}" + (f"\n  {u}" if u else "") for t, u in elements] + [""]
         html.append(f'<h2 style="font-size:16px;margin:22px 0 6px">{escape(titre)}</h2>')
         html += [f'<p style="margin:0 0 6px">{escape(p)}</p>' for p in phrases]
         if elements:
