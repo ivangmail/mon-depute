@@ -29,6 +29,8 @@ mois. Éditeur : Ivan Jouravleff. Nom affiché : « Mon député ».
   (voir « Travail à plusieurs sessions »).
   L'éditeur applique les mises à jour sur le serveur avec les commandes qu'on lui
   donne (il ne les connaît pas par cœur) et rend compte (« c'est fait »).
+  Chaque série de commandes serveur commence par la commande de connexion depuis
+  PowerShell : `ssh root@151.115.78.185` (demande de l'éditeur, 26/11/2026).
 - Ne jamais demander ni recevoir de secret dans la conversation (clés Scaleway,
   phrase secrète, contenu de `/etc/mon-depute.env`).
 - Pas d'IA générative pour les contenus propres à chaque député. Les intitulés en
