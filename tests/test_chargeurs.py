@@ -830,6 +830,23 @@ class Etapes493(unittest.TestCase):
         self.assertEqual(etapes.parcours(longue)[-1]["date"], "2025-02-11")  # les plus récentes
         self.assertEqual(etapes.parcours([etape("AN1-DEPOT", None)]), [])
 
+    def test_fiche_resultat_et_parcours(self):
+        from collecte import fiche
+        v = {"sort": "adopté", "nb_pour": 378, "nb_contre": 7, "nb_abstentions": 173,
+             "nb_exprimes": 385}
+        html = fiche._repartition_vote(v)
+        self.assertIn("Adopté", html)
+        self.assertIn("378 pour · 173 abst. · 7 contre · majorité 193", html)
+        self.assertIn('class="vbarre"', html)
+        self.assertEqual(fiche._repartition_vote({**v, "nb_pour": 0, "nb_contre": 0,
+                                                  "nb_abstentions": 0}), "Adopté")
+        bloc = fiche._parcours_texte("Texte rejeté par l'Assemblée nationale le 04/11/2026",
+                                     [{"libelle": "Assemblée, 1re lecture",
+                                       "date": "2026-11-04", "sens": "rejeté"}])
+        self.assertIn("<summary>Où en est ce texte</summary>", bloc)
+        self.assertIn('<li class="ko">', bloc)
+        self.assertEqual(fiche._parcours_texte("", []), "")
+
     def test_texte_de_cmp(self):
         cmp = [etape("CMP-DEC", "2025-01-31", "Accord"),
                etape("CMP-DEBATS-AN-DEC", "2025-02-05", self.ADOPTE)]

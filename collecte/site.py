@@ -18,11 +18,11 @@ STYLE = """
 :root{--fond:#fbfaf7;--surface:#fff;--texte:#1c1f26;--doux:#5b6270;--trait:#dfe1e6;
 --accent:#1d4e89;--pour:#1a7f4b;--contre:#b3261e;--neutre:#6b7280;--jauge:#e6e8ec;
 --alerte:#fff6d6;--alerte-texte:#5c4400;--une-a:#e8f0f8;--une-b:#f3f6f9;--une-c:#ebf3ee;
---appel:#183f5b;--appel-texte:#d5e5f0}
+--appel:#183f5b;--appel-texte:#d5e5f0;--abstention:#c9971f}
 @media(prefers-color-scheme:dark){:root{--fond:#14161a;--surface:#1c1f25;--texte:#e9eaee;
 --doux:#a0a6b2;--trait:#343943;--accent:#8fb8ee;--pour:#5fca93;--contre:#f08a82;
 --neutre:#a0a6b2;--jauge:#2b3039;--alerte:#3a3214;--alerte-texte:#f2dfa0;--une-a:#18202b;
---une-b:#16191f;--une-c:#17211d;--appel:#1f3550;--appel-texte:#d5e5f0}}
+--une-b:#16191f;--une-c:#17211d;--appel:#1f3550;--appel-texte:#d5e5f0;--abstention:#e0b850}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--fond);color:var(--texte);
 font:17px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -112,6 +112,20 @@ ul.liste a:hover b{text-decoration:underline}
 ul.liste span{color:var(--doux);font-size:.9rem}
 ul.liste .g{grid-row:span 2;align-self:center;white-space:nowrap}
 details{margin-top:32px}summary{cursor:pointer;font-weight:600}
+.vbarre{display:flex;height:8px;border-radius:4px;overflow:hidden;min-width:150px;
+margin:6px 0 3px;background:var(--jauge)}
+.vbarre span{display:block;height:100%}.vbarre .p{background:var(--pour)}
+.vbarre .a{background:var(--abstention)}.vbarre .c{background:var(--contre)}
+td small{display:block;font-size:.78rem;white-space:nowrap}
+details.parcours{margin:6px 0 0}details.parcours summary{font-weight:400;font-size:.85rem;
+color:var(--accent)}details.parcours p{margin:6px 0 0}
+ol.frise{list-style:none;padding:0;margin:8px 0 4px;display:flex;flex-wrap:wrap;gap:8px 16px}
+ol.frise li{display:grid;grid-template-columns:auto 1fr;column-gap:6px;font-size:.8rem;
+line-height:1.3;max-width:11em}
+ol.frise li span{grid-row:span 2;width:20px;height:20px;border-radius:50%;display:grid;
+place-items:center;background:var(--neutre);color:var(--fond);font-weight:700;font-size:.75rem}
+ol.frise li.ok span{background:var(--pour)}ol.frise li.ko span{background:var(--contre)}
+ol.frise li b{font-weight:600}ol.frise li small{color:var(--doux)}
 .accroche{font-size:1.1rem;max-width:62ch;color:var(--doux);margin:0 0 4px}
 .bloc.adresse{margin-top:20px}
 .bloc.adresse input{font-size:1.05rem;padding:12px 14px}
@@ -374,6 +388,11 @@ def methodologie(db):
 <li>Les positions « non-votant » ne comptent pas comme une participation.</li>
 <li>Le taux n’est pas affiché en dessous de {indicateurs.MIN_SOLENNELS} scrutins solennels pendant le mandat.</li>
 </ul>
+<p>Sur la fiche, chaque vote sur un texte entier est accompagné de la répartition des voix
+ (pour, abstention, contre) et de la majorité requise, égale à la moitié des suffrages exprimés
+ plus un, comme la publie l’Assemblée pour ces scrutins. « Où en est ce texte » donne la
+ dernière étape connue et les étapes déjà franchies, selon les règles de la lettre
+ (<a href="#lettre">voir plus bas</a>) ; aucune étape à venir n’est affichée.</p>
 <p>Médiane actuelle des députés en exercice : {moy('solennels')}.</p>
 
 <h2 id="tous-scrutins">Pourquoi le taux « tous scrutins » est bas</h2>

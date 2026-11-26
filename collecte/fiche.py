@@ -6,7 +6,7 @@ from urllib.parse import quote
 from email.utils import parsedate_to_datetime
 from html import escape
 
-from . import indicateurs, portrait
+from . import etapes, indicateurs, portrait
 from .portrait import jour
 from .sources import LEGISLATURE
 
@@ -73,7 +73,8 @@ def votes_solennels(db, uid, limite=10):
     """Derniers scrutins solennels tenus pendant le mandat, avec la position
     du député, y compris quand il n'a pas pris part au vote."""
     return db.execute("""
-        SELECT s.numero, s.date, s.titre, s.sort, v.position FROM scrutins s
+        SELECT s.numero, s.date, s.titre, s.sort, v.position, s.dossier_uid,
+               s.nb_pour, s.nb_contre, s.nb_abstentions, s.nb_exprimes FROM scrutins s
         LEFT JOIN votes v ON v.scrutin_uid = s.uid AND v.acteur_uid = :uid
         WHERE s.type_vote = :type AND EXISTS (
             SELECT 1 FROM mandats m WHERE m.acteur_uid = :uid
@@ -213,6 +214,46 @@ def _tableau(entetes, lignes, vide):
             f'<tbody>{corps}</tbody></table></div>')
 
 
+def _repartition_vote(v):
+    """Résultat d'un vote : son sens, une barre fine (pour, abstention, contre) et les
+    nombres, avec la majorité requise (moitié des suffrages exprimés plus un)."""
+    pour, contre, abst = v["nb_pour"] or 0, v["nb_contre"] or 0, v["nb_abstentions"] or 0
+    sort = escape(majuscule(v["sort"] or ""))
+    total = pour + contre + abst
+    if not total:
+        return sort
+    parts = "".join(f'<span class="{c}" style="width:{100 * n / total:.1f}%"></span>'
+                    for n, c in ((pour, "p"), (abst, "a"), (contre, "c")) if n)
+    detail = f"{pour} pour · {abst} abst. · {contre} contre"
+    if v["nb_exprimes"]:
+        detail += f" · majorité {v['nb_exprimes'] // 2 + 1}"
+    return (f'{sort}<span class="vbarre" role="img" aria-label="{escape(detail)}">{parts}</span>'
+            f'<small class="doux">{escape(detail)}</small>')
+
+
+SYMBOLES = {"adopté": "✓", "rejeté": "✕", "neutre": "•"}
+
+
+def frise(etapes):
+    """Étapes franchies et datées d'un texte (collecte.etapes.parcours) ; aucune
+    étape à venir. Le symbole et le libellé portent l'information, pas la couleur."""
+    if not etapes:
+        return ""
+    return '<ol class="frise">' + "".join(
+        f'<li class="{"ok" if e["sens"] == "adopté" else "ko" if e["sens"] == "rejeté" else ""}">'
+        f'<span aria-hidden="true">{SYMBOLES[e["sens"]]}</span>'
+        f'<b>{escape(e["libelle"])}</b><small>{jour(e["date"])}</small></li>'
+        for e in etapes) + "</ol>"
+
+
+def _parcours_texte(phrase, etapes):
+    """Bloc repliable « Où en est ce texte » sous un vote."""
+    if not phrase and not etapes:
+        return ""
+    return (f'<details class="parcours"><summary>Où en est ce texte</summary>'
+            f'<p class="petit">{escape(phrase)}</p>{frise(etapes)}</details>')
+
+
 def _carte(valeur, libelle, detail=""):
     return (f'<div class="carte"><b>{valeur}</b><span>{escape(libelle)}</span>'
             + (f'<small>{escape(detail)}</small>' if detail else "") + "</div>")
@@ -270,6 +311,8 @@ def corps(db, uid, racine="", api_url=None):
               f'<span class="statut">Mandat clos le {jour(d["date_fin"])}</span>')
 
     solennels = votes_solennels(db, uid)
+    dossiers = [v["dossier_uid"] for v in solennels if v["dossier_uid"]]
+    etats, parcours = etapes.pour_dossiers(db, dossiers), etapes.parcours_pour_dossiers(db, dossiers)
     dissidents = votes_dissidents(db, uid)
     nb_dissidents = i["votes_comparables"] - i["votes_conformes"]
     questions = db.execute("""
@@ -360,8 +403,9 @@ def corps(db, uid, racine="", api_url=None):
 <h3>Ses votes sur les textes entiers</h3>
 {_tableau(["Date", "Son vote", "Scrutin solennel", "Résultat"],
           [(jour(v['date']), _position(v['position']),
-            _lien_scrutin(v['numero'], v['titre']) + _interroger(adresse, a, d, v),
-            escape(majuscule(v['sort'] or ''))) for v in solennels],
+            _lien_scrutin(v['numero'], v['titre']) + _interroger(adresse, a, d, v)
+            + _parcours_texte(etats.get(v['dossier_uid'], ""), parcours.get(v['dossier_uid'], [])),
+            _repartition_vote(v)) for v in solennels],
           "Aucun scrutin solennel pendant son mandat.")}
 
 <h3>Ses votes contre la ligne de son groupe</h3>

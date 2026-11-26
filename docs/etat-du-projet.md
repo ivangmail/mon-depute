@@ -223,9 +223,13 @@ dans `/etc/systemd/system/` puis `systemctl daemon-reload`.)
   l'éditeur (domaines non accessibles depuis la session).
 - Intitulés : à proposer chaque semaine pour les nouveaux textes, sur demande de
   l'éditeur (« propose les libellés des nouveaux textes »).
-- Fiche du site : maquette visuelle de l'éditeur (hémicycle SVG, bloc
-  « Comprendre », votes par thème) pas encore réalisée ; parcours d'un texte à
-  dessiner sans étapes futures.
+- Fiche du site (refonte décidée le 26/11/2026) : faits le 26/11/2026, sous
+  chaque vote sur un texte entier, la barre de résultat avec la majorité requise
+  et « Où en est ce texte » (étapes franchies seulement). Restent, dans l'ordre
+  de `docs/propositions/2026-11-25-refonte-lettre-et-site.md` § 3 : hémicycle
+  (correspondance entre `place_hemicycle` et un plan de sièges À VÉRIFIER),
+  votes par thème, page « Comprendre », faits marquants, activité dans le
+  temps, images de partage, photo (droits À VÉRIFIER).
 - Cas à vérifier : texte sur les réseaux sociaux et les mineurs, promulgué après
   une décision « non conforme » du Conseil constitutionnel.
 - Licence du code : décision de l'éditeur attendue.
