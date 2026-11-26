@@ -111,12 +111,18 @@ class Application:
         circo = self._circonscription(champs.get("departement", ""), champs.get("circo", ""))
         if not circo:
             return self._json({"erreur": "Circonscription inconnue."}, "400 Bad Request")
+        themes = champs.get("themes") or []
+        if isinstance(themes, str):
+            themes = [themes]
+        if not isinstance(themes, list) or any(t not in THEMES for t in themes):
+            return self._json({"erreur": "Thème inconnu."}, "400 Bad Request")
         if self._trop_de_demandes(ip):
             return self._json({"erreur": "Trop de demandes. Réessayez dans une heure."},
                               "429 Too Many Requests")
         db = self._abonnes()
         try:
-            abonne, envoi = abonnes.inscrire(db, email, circo[0], circo[1], champs["frequence"])
+            abonne, envoi = abonnes.inscrire(db, email, circo[0], circo[1], champs["frequence"],
+                                             themes=themes)
         finally:
             db.close()
         try:
@@ -143,7 +149,10 @@ class Application:
                 sujet = "Confirmez votre abonnement à Mon député"
                 texte = (f"Bonjour,\n\nVous avez demandé à recevoir {LIBELLES[abonne['frequence']]} "
                          f"l'activité du député de la {lieu}.\n\n"
-                         f"Pour confirmer, ouvrez ce lien :\n{liens['confirmer']}\n\n"
+                         + (f"Thèmes mis en avant : {', '.join(abonnes.themes_de(abonne))} "
+                            "(modifiables à tout moment ; rien n'est retiré de la lettre).\n\n"
+                            if abonnes.themes_de(abonne) else "")
+                         + f"Pour confirmer, ouvrez ce lien :\n{liens['confirmer']}\n\n"
                          "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : "
                          "sans confirmation, votre adresse sera effacée sous "
                          f"{abonnes.DELAI_CONFIRMATION} jours.\n")

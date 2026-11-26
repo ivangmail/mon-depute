@@ -765,6 +765,26 @@ class Lettre(unittest.TestCase):
                                     "&choix_themes=1&themes=Inconnu", json_=False)
         self.assertEqual(statut, "400 Bad Request")
 
+    def test_themes_choisis_a_l_inscription(self):
+        import json
+        self.assertEqual(self.demande(themes=["Inconnu"])[0], "400 Bad Request")
+        statut, _, _ = self.demande(themes=["Défense", "Affaires étrangères"])
+        self.assertEqual(statut, "200 OK")
+        self.assertEqual(json.loads(self.lignes()[0]["themes"]), ["Affaires étrangères", "Défense"])
+        texte = self.courriels()[-1].get_body(("plain",)).get_content()
+        self.assertIn("Thèmes mis en avant : Affaires étrangères, Défense", texte)
+        # Un abonnement confirmé ne se modifie pas par le formulaire public : quelqu'un
+        # qui saisit l'adresse d'un autre ne peut pas changer ses thèmes.
+        db = abonnes.ouvrir(self.config.abonnes)
+        abonnes.confirmer(db, self.lignes()[0]["id"])
+        db.execute("UPDATE abonnes SET dernier_courriel_le = NULL")
+        db.commit()
+        db.close()
+        self.demande(themes=["Défense"])
+        self.assertEqual(json.loads(self.lignes()[0]["themes"]), ["Affaires étrangères", "Défense"])
+        # Un seul thème, envoyé comme simple texte, est accepté.
+        self.assertEqual(self.demande(email="bob@exemple.fr", themes="Défense")[0], "200 OK")
+
     def test_base_des_abonnes_sans_colonne_themes(self):
         import sqlite3
         ancienne = sqlite3.connect(self.config.abonnes)

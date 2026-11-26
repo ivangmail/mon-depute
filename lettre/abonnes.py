@@ -122,8 +122,13 @@ def verifier(secret, valeur, usage):
 
 # -------------------------------------------------------------- opérations
 
-def inscrire(db, email, departement, circo, frequence, instant=None):
+def inscrire(db, email, departement, circo, frequence, instant=None, themes=None):
     """Enregistre une demande d'abonnement.
+
+    themes : thèmes à mettre en avant, choisis à l'inscription (facultatif). Ils
+    ne s'appliquent qu'à une inscription nouvelle ou pas encore confirmée : un
+    abonnement confirmé ne se modifie que par son lien de gestion, pour que
+    personne ne puisse changer les choix d'un autre en saisissant son adresse.
 
     Renvoie (abonné, courriel) où courriel vaut « confirmation », « gestion »
     (l'adresse est déjà abonnée : on lui renvoie son lien de gestion) ou None
@@ -134,6 +139,7 @@ def inscrire(db, email, departement, circo, frequence, instant=None):
     instant = instant or maintenant()
     if frequence not in FREQUENCES:
         raise ValueError("fréquence inconnue")
+    valeur_themes = _valeur_themes(themes or [])
     existant = db.execute(
         "SELECT * FROM abonnes WHERE email = ? AND num_departement = ? AND num_circo = ?",
         (email, departement, circo)).fetchone()
@@ -142,8 +148,8 @@ def inscrire(db, email, departement, circo, frequence, instant=None):
         if dernier and (instant - _lire(dernier)).total_seconds() < DELAI_ENTRE_COURRIELS:
             return existant, None
         if existant["statut"] == "attente":
-            db.execute("UPDATE abonnes SET frequence = ?, dernier_courriel_le = ? WHERE id = ?",
-                       (frequence, _iso(instant), existant["id"]))
+            db.execute("UPDATE abonnes SET frequence = ?, themes = ?, dernier_courriel_le = ?"
+                       " WHERE id = ?", (frequence, valeur_themes, _iso(instant), existant["id"]))
         else:
             db.execute("UPDATE abonnes SET dernier_courriel_le = ? WHERE id = ?",
                        (_iso(instant), existant["id"]))
@@ -154,9 +160,9 @@ def inscrire(db, email, departement, circo, frequence, instant=None):
     if nombre >= MAX_PAR_ADRESSE:
         return None, None
     curseur = db.execute(
-        "INSERT INTO abonnes (email, num_departement, num_circo, frequence, statut, cree_le,"
-        " dernier_courriel_le) VALUES (?,?,?,?, 'attente', ?, ?)",
-        (email, departement, circo, frequence, _iso(instant), _iso(instant)))
+        "INSERT INTO abonnes (email, num_departement, num_circo, frequence, themes, statut,"
+        " cree_le, dernier_courriel_le) VALUES (?,?,?,?,?, 'attente', ?, ?)",
+        (email, departement, circo, frequence, valeur_themes, _iso(instant), _iso(instant)))
     compter(db, "inscription", instant)
     db.commit()
     return db.execute("SELECT * FROM abonnes WHERE id = ?", (curseur.lastrowid,)).fetchone(), \
@@ -193,14 +199,19 @@ def modifier(db, identifiant, frequence):
     db.commit()
 
 
+def _valeur_themes(choisis):
+    """Valeur de la colonne themes : liste JSON dans l'ordre de THEMES, ou None si
+    aucun thème ou tous sont choisis. ValueError pour un thème inconnu."""
+    if set(choisis) - set(THEMES):
+        raise ValueError("thème inconnu")
+    retenus = [t for t in THEMES if t in set(choisis)]
+    return json.dumps(retenus, ensure_ascii=False) if 0 < len(retenus) < len(THEMES) else None
+
+
 def choisir_themes(db, identifiant, choisis):
     """Enregistre les thèmes mis en avant dans la lettre. Aucun thème, ou tous,
     revient à n'en mettre aucun en avant : la colonne est alors vide."""
-    inconnus = set(choisis) - set(THEMES)
-    if inconnus:
-        raise ValueError("thème inconnu")
-    retenus = [t for t in THEMES if t in set(choisis)]
-    valeur = json.dumps(retenus, ensure_ascii=False) if 0 < len(retenus) < len(THEMES) else None
+    valeur = _valeur_themes(choisis)
     db.execute("UPDATE abonnes SET themes = ? WHERE id = ?", (valeur, identifiant))
     db.commit()
 

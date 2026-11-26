@@ -9,6 +9,7 @@ from html import escape
 from . import etapes, indicateurs, portrait
 from .portrait import jour
 from .sources import LEGISLATURE
+from .themes import THEMES
 
 URL_SCRUTIN = "https://www.assemblee-nationale.fr/dyn/" + LEGISLATURE + "/scrutins/{}"
 URL_DEPUTE = "https://www.assemblee-nationale.fr/dyn/deputes/{}"
@@ -260,7 +261,10 @@ def _carte(valeur, libelle, detail=""):
 
 
 def formulaire_abonnement(nom, d, racine, api_url):
-    """Formulaire d'abonnement à la lettre, pour un député en exercice."""
+    """Formulaire d'abonnement à la lettre, pour un député en exercice. Les thèmes
+    à mettre en avant sont facultatifs, dans un bloc replié."""
+    cases = "".join(f'<label class="case"><input type="checkbox" name="themes" '
+                    f'value="{escape(t)}"> {escape(t)}</label>' for t in THEMES)
     return f"""
 <section class="bloc">
 <h2>Suivre son activité par e-mail</h2>
@@ -273,13 +277,17 @@ def formulaire_abonnement(nom, d, racine, api_url):
 <fieldset><legend>Fréquence</legend>
 <label><input type="radio" name="frequence" value="hebdomadaire" checked> Chaque semaine (le mercredi)</label>
 <label><input type="radio" name="frequence" value="mensuelle"> Chaque mois (le 3)</label></fieldset>
+<details class="themes"><summary>Mettre des thèmes en avant (facultatif)</summary>
+<p class="doux petit">Les textes de ces thèmes seront présentés en premier dans chaque rubrique.
+ Rien n’est retiré : la lettre reste complète. Modifiable à tout moment.</p>
+<div class="cases">{cases}</div></details>
 <p><label class="case"><input type="checkbox" name="consentement" value="1" required>
  J’accepte que mon adresse e-mail soit conservée pour recevoir cette lettre.</label></p>
 <p><button type="submit">Recevoir l’activité de {escape(nom)}</button></p>
 <p id="abonnement-retour" aria-live="polite"></p>
 </form>
-<p class="doux petit">Un e-mail vous demandera de confirmer. Seules votre adresse, cette circonscription
- et la fréquence sont conservées, jusqu’à votre désabonnement, possible en un clic depuis chaque
+<p class="doux petit">Un e-mail vous demandera de confirmer. Seules votre adresse, cette circonscription,
+ la fréquence et, si vous en choisissez, les thèmes sont conservés, jusqu’à votre désabonnement, possible en un clic depuis chaque
  lettre. Aucune lettre n’est envoyée quand il n’y a pas d’activité.
  <a href="{racine}confidentialite.html">Confidentialité</a>.</p>
 </section>

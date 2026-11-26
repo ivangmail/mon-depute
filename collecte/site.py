@@ -89,6 +89,9 @@ border-bottom:1px solid var(--trait);background:none;color:var(--texte);cursor:p
 .bloc button[type=submit],main form button{font:inherit;padding:10px 16px;border-radius:8px;
 border:0;background:var(--accent);color:var(--fond);cursor:pointer;font-weight:600}
 .piege{position:absolute;left:-9999px}
+details.themes{margin:6px 0 10px}details.themes summary{font-weight:600}
+details.themes .cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+gap:4px 16px;margin-top:6px}
 .bloc textarea{width:100%;font:inherit;padding:10px 12px;border-radius:8px;resize:vertical;
 border:1px solid var(--trait);background:var(--fond);color:var(--texte);line-height:1.45}
 .bloc input[type=text]+label,.bloc label[for=courrier-texte]{margin-top:12px}
@@ -487,8 +490,8 @@ def methodologie(db):
  de l’Assemblée. La troisième résume le reste de son activité de la période (amendements,
  interventions, questions, propositions de loi, réunions de commission). Ces lignes sont
  produites par des règles fixes, sans rédaction automatique.</li>
-<li><b>Thèmes mis en avant :</b> depuis la page de gestion de son abonnement, chacun peut
- choisir des thèmes. Les textes de ces thèmes sont alors présentés en premier dans chaque
+<li><b>Thèmes mis en avant :</b> à l’inscription (cases facultatives) ou depuis la page de
+ gestion de son abonnement, chacun peut choisir des thèmes. Les textes de ces thèmes sont alors présentés en premier dans chaque
  rubrique, et signalés comme tels. Rien n’est retiré : la lettre reste complète, et tous les
  abonnés d’une circonscription reçoivent les mêmes informations.</li>
 <li><b>« L’essentiel » :</b> les scrutins solennels, les motions de censure et les votes sur

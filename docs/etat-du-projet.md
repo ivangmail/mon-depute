@@ -91,6 +91,10 @@ Règles :
 Décisions de l'éditeur, de la plus récente à la plus ancienne. Elles priment sur
 toute proposition antérieure.
 
+- **26/11/2026** — Thèmes mis en avant proposés **dès l'inscription** (cases
+  facultatives, dans un bloc replié du formulaire de la fiche), en plus de la
+  page de gestion. Un abonnement déjà confirmé ne se modifie que par son lien de
+  gestion : les thèmes saisis dans le formulaire public sont alors ignorés.
 - **26/11/2026** — Intitulés : règle de rédaction du 24/11/2026 (prise avec
   Projet) confirmée : l'intitulé reprend le titre officiel ou, quand il est
   vague, dit ce que fait le texte d'après le texte déposé, sans jugement ni

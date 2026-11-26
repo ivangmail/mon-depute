@@ -7,7 +7,10 @@
   formulaire.addEventListener('submit', function (evenement) {
     evenement.preventDefault();
     var champs = {};
-    new FormData(formulaire).forEach(function (valeur, cle) { champs[cle] = valeur; });
+    new FormData(formulaire).forEach(function (valeur, cle) {
+      if (cle === 'themes') (champs.themes = champs.themes || []).push(valeur);  // cases multiples
+      else champs[cle] = valeur;
+    });
     var bouton = formulaire.querySelector('button');
     bouton.disabled = true;
     retour.className = 'doux';
